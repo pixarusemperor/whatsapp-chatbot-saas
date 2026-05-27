@@ -5,10 +5,10 @@ import { handleChatbotPipeline } from '@/services/chatbot';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { tenant_id: string; session_id: string } }
+  { params }: { params: Promise<{ tenant_id: string; session_id: string }> }
 ) {
   try {
-    const { tenant_id, session_id } = params;
+    const { tenant_id, session_id } = await params;
     
     // 1. Read headers and verify signature
     const signature = request.headers.get('x-webhook-signature');

@@ -17,7 +17,7 @@ async function getTenantId(request: NextRequest): Promise<string | null> {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const tenantId = await getTenantId(request);
@@ -25,7 +25,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const sessionId = params.id;
+    const { id: sessionId } = await params;
 
     // 1. Fetch local session record
     const { data: session, error: sessionError } = await supabaseAdmin
@@ -91,7 +91,7 @@ export async function POST(
 // GET endpoint to fetch a fresh QR code if it expired (WatsSender QR codes expire after 45s)
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const tenantId = await getTenantId(request);
@@ -99,7 +99,7 @@ export async function GET(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const sessionId = params.id;
+    const { id: sessionId } = await params;
 
     const { data: session, error: sessionError } = await supabaseAdmin
       .from('whatsapp_sessions')

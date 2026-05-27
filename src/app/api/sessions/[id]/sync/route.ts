@@ -17,7 +17,7 @@ async function getTenantId(request: NextRequest): Promise<string | null> {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const tenantId = await getTenantId(request);
@@ -25,7 +25,7 @@ export async function POST(
       return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
     }
 
-    const sessionId = params.id;
+    const { id: sessionId } = await params;
 
     // Fetch local session record to get wats_api_key
     const { data: session, error: sessionError } = await supabaseAdmin
