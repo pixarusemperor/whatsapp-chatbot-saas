@@ -1,0 +1,18 @@
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
+// Client for frontend / client-side components (obeys Row Level Security)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// Admin client for backend / API routes (bypasses RLS for system operations, webhooks)
+export const supabaseAdmin = typeof window === 'undefined' && supabaseServiceRoleKey
+  ? createClient(supabaseUrl, supabaseServiceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    })
+  : supabase;
