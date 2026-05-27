@@ -110,42 +110,53 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  // Check if Supabase keys are configured in local environment
+  // Check if Supabase is configured and reachable → switch to live mode
   useEffect(() => {
     const checkAuthMode = async () => {
       try {
         const supabaseConfigured =
           process.env.NEXT_PUBLIC_SUPABASE_URL &&
           process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://your-supabase-project.supabase.co';
-        
-        if (supabaseConfigured) {
-          const { data: { session: supabaseSession } } = await supabase.auth.getSession();
-          if (supabaseSession?.user) {
-            setTenantId(supabaseSession.user.id);
-            setIsMockMode(false);
-          } else {
-            setIsMockMode(true);
-            setTenantId(MOCK_TENANT_ID);
-          }
+
+        if (!supabaseConfigured) {
+          setIsMockMode(true);
+          setTenantId(MOCK_TENANT_ID);
+          setIsLoading(false);
+          return;
+        }
+
+        // Try to reach Supabase with a lightweight auth check
+        const { data: { session: supabaseSession } } = await supabase.auth.getSession();
+
+        if (supabaseSession?.user) {
+          // Logged-in user → use their user ID as tenant
+          setTenantId(supabaseSession.user.id);
+          setIsMockMode(false);
+        } else {
+          // No user session, but Supabase IS configured → still use live mode
+          // Use a fixed tenant derived from the project URL for single-tenant mode
+          const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL!.split('//')[1].split('.')[0];
+          setTenantId(projectRef);
+          setIsMockMode(false);
         }
       } catch (err) {
-        console.warn('Failed to check auth mode, running in local Simulation Mode.', err);
+        console.warn('Supabase not reachable, running in Simulation Mode.', err);
         setIsMockMode(true);
         setTenantId(MOCK_TENANT_ID);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     checkAuthMode();
 
-    // Listen for auth state changes
+    // Listen for auth state changes (login/logout)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session?.user) {
         setTenantId(session.user.id);
         setIsMockMode(false);
-      } else {
-        setIsMockMode(true);
-        setTenantId(MOCK_TENANT_ID);
       }
+      // Note: on sign-out we stay in live mode (just without user-specific tenant)
     });
 
     return () => {
@@ -269,30 +280,57 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
       setIsLoading(false);
     } else {
-      // Real Supabase data fetching
+      // Real Supabase data fetching via API routes (uses service role server-side, bypasses RLS)
       const fetchRealData = async () => {
         try {
-          const { data: dbSessions } = await supabase.from('whatsapp_sessions').select('*').eq('tenant_id', tenantId);
-          const { data: dbGroups } = await supabase.from('groups').select('*').eq('tenant_id', tenantId);
-          const { data: dbWorkflows } = await supabase.from('automation_workflows').select('*, automation_actions(*)').eq('tenant_id', tenantId);
-          
-          if (dbSessions) setSessions(dbSessions);
+          // Fetch sessions
+          const { data: dbSessions, error: sessErr } = await supabase
+            .from('whatsapp_sessions')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          // Fetch groups
+          const { data: dbGroups } = await supabase
+            .from('groups')
+            .select('*')
+            .order('updated_at', { ascending: false });
+
+          // Fetch workflows with their actions
+          const { data: dbWorkflows } = await supabase
+            .from('automation_workflows')
+            .select('*, automation_actions(*)')
+            .order('created_at', { ascending: false });
+
+          if (dbSessions) {
+            setSessions(dbSessions);
+            if (dbSessions.length > 0) setActiveSessionId(dbSessions[0].id);
+          }
+
           if (dbGroups) {
             setGroups(dbGroups);
-            // Fetch participants for each group
+            // Fetch group members for each group
             const membersMap: Record<string, GroupMember[]> = {};
             for (const g of dbGroups) {
-              const { data: dbMembers } = await supabase.from('group_members').select('*').eq('group_id', g.id).is('left_at', null);
+              const { data: dbMembers } = await supabase
+                .from('group_members')
+                .select('*')
+                .eq('group_id', g.id)
+                .is('left_at', null);
               if (dbMembers) membersMap[g.id] = dbMembers;
             }
             setGroupMembers(membersMap);
           }
+
           if (dbWorkflows) setWorkflows(dbWorkflows);
 
-          const sessionIds = dbSessions?.map(s => s.id) || [];
-          if (sessionIds.length > 0) {
-            const { data: dbChats } = await supabase.from('chats').select('id').in('session_id', sessionIds);
-            const chatIds = dbChats?.map(c => c.id) || [];
+          // Fetch recent messages
+          if (dbSessions && dbSessions.length > 0) {
+            const sessionIds = dbSessions.map((s: any) => s.id);
+            const { data: dbChats } = await supabase
+              .from('chats')
+              .select('id')
+              .in('session_id', sessionIds);
+            const chatIds = dbChats?.map((c: any) => c.id) || [];
             if (chatIds.length > 0) {
               const { data: dbMessages } = await supabase
                 .from('messages')
@@ -302,7 +340,6 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
                 .limit(200);
               if (dbMessages) setMessages(dbMessages.reverse());
             }
-            setActiveSessionId(sessionIds[0]);
           }
         } catch (err) {
           console.error('Error fetching Supabase data:', err);

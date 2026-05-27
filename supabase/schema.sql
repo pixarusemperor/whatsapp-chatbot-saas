@@ -182,6 +182,8 @@ CREATE TRIGGER set_workflows_updated_at BEFORE UPDATE ON automation_workflows FO
 
 -- ============================================================================
 -- ROW LEVEL SECURITY (RLS) POLICIES
+-- Single-tenant mode: anon can READ all data (dashboard reads),
+-- service role (API routes) handles all WRITES securely server-side.
 -- ============================================================================
 
 -- Enable RLS on all tables
@@ -195,49 +197,73 @@ ALTER TABLE group_activity_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE automation_workflows ENABLE ROW LEVEL SECURITY;
 ALTER TABLE automation_actions ENABLE ROW LEVEL SECURITY;
 
--- 1. Tenants Policies (Users can only see/edit their own tenant entry)
+-- 1. Tenants: owner can manage, anon can read
 DROP POLICY IF EXISTS tenant_all_policy ON tenants;
+DROP POLICY IF EXISTS tenant_read_policy ON tenants;
 CREATE POLICY tenant_all_policy ON tenants
     FOR ALL USING (id = auth.uid()) WITH CHECK (id = auth.uid());
+CREATE POLICY tenant_read_policy ON tenants
+    FOR SELECT USING (true);
 
--- 2. Sessions Policies
+-- 2. Sessions: anon read, auth write
 DROP POLICY IF EXISTS sessions_all_policy ON whatsapp_sessions;
+DROP POLICY IF EXISTS sessions_read_policy ON whatsapp_sessions;
 CREATE POLICY sessions_all_policy ON whatsapp_sessions
     FOR ALL USING (tenant_id = auth.uid()) WITH CHECK (tenant_id = auth.uid());
+CREATE POLICY sessions_read_policy ON whatsapp_sessions
+    FOR SELECT USING (true);
 
--- 3. Chats Policies
+-- 3. Chats: anon read, auth write
 DROP POLICY IF EXISTS chats_all_policy ON chats;
+DROP POLICY IF EXISTS chats_read_policy ON chats;
 CREATE POLICY chats_all_policy ON chats
     FOR ALL USING (tenant_id = auth.uid()) WITH CHECK (tenant_id = auth.uid());
+CREATE POLICY chats_read_policy ON chats
+    FOR SELECT USING (true);
 
--- 4. Messages Policies
+-- 4. Messages: anon read, auth write
 DROP POLICY IF EXISTS messages_all_policy ON messages;
+DROP POLICY IF EXISTS messages_read_policy ON messages;
 CREATE POLICY messages_all_policy ON messages
     FOR ALL USING (tenant_id = auth.uid()) WITH CHECK (tenant_id = auth.uid());
+CREATE POLICY messages_read_policy ON messages
+    FOR SELECT USING (true);
 
--- 5. Groups Policies
+-- 5. Groups: anon read, auth write
 DROP POLICY IF EXISTS groups_all_policy ON groups;
+DROP POLICY IF EXISTS groups_read_policy ON groups;
 CREATE POLICY groups_all_policy ON groups
     FOR ALL USING (tenant_id = auth.uid()) WITH CHECK (tenant_id = auth.uid());
+CREATE POLICY groups_read_policy ON groups
+    FOR SELECT USING (true);
 
--- 6. Group Members Policies
+-- 6. Group Members: anon read, auth write
 DROP POLICY IF EXISTS members_all_policy ON group_members;
+DROP POLICY IF EXISTS members_read_policy ON group_members;
 CREATE POLICY members_all_policy ON group_members
     FOR ALL USING (tenant_id = auth.uid()) WITH CHECK (tenant_id = auth.uid());
+CREATE POLICY members_read_policy ON group_members
+    FOR SELECT USING (true);
 
--- 7. Group Activity Logs Policies
+-- 7. Group Activity Logs: anon read, auth write
 DROP POLICY IF EXISTS activity_all_policy ON group_activity_logs;
+DROP POLICY IF EXISTS activity_read_policy ON group_activity_logs;
 CREATE POLICY activity_all_policy ON group_activity_logs
     FOR ALL USING (tenant_id = auth.uid()) WITH CHECK (tenant_id = auth.uid());
+CREATE POLICY activity_read_policy ON group_activity_logs
+    FOR SELECT USING (true);
 
--- 8. Automation Workflows Policies
+-- 8. Automation Workflows: anon read, auth write
 DROP POLICY IF EXISTS workflows_all_policy ON automation_workflows;
+DROP POLICY IF EXISTS workflows_read_policy ON automation_workflows;
 CREATE POLICY workflows_all_policy ON automation_workflows
     FOR ALL USING (tenant_id = auth.uid()) WITH CHECK (tenant_id = auth.uid());
+CREATE POLICY workflows_read_policy ON automation_workflows
+    FOR SELECT USING (true);
 
--- 9. Automation Actions Policies
--- Checked via joining through the workflow to verify the tenant owns it.
+-- 9. Automation Actions: anon read, auth write
 DROP POLICY IF EXISTS actions_all_policy ON automation_actions;
+DROP POLICY IF EXISTS actions_read_policy ON automation_actions;
 CREATE POLICY actions_all_policy ON automation_actions
     FOR ALL USING (
         EXISTS (
@@ -250,6 +276,8 @@ CREATE POLICY actions_all_policy ON automation_actions
             WHERE w.id = automation_actions.workflow_id AND w.tenant_id = auth.uid()
         )
     );
+CREATE POLICY actions_read_policy ON automation_actions
+    FOR SELECT USING (true);
 
 
 -- ============================================================================
