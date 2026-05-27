@@ -5,9 +5,11 @@ interface SidebarProps {
   activeTab: string;
   setActiveTab: (tab: string) => void;
   isMockMode: boolean;
+  onAuthClick?: () => void;
+  onLogout?: () => void;
 }
 
-export default function DashboardSidebar({ activeTab, setActiveTab, isMockMode }: SidebarProps) {
+export default function DashboardSidebar({ activeTab, setActiveTab, isMockMode, onAuthClick, onLogout }: SidebarProps) {
   const menuItems = [
     { id: 'overview', name: 'Overview', icon: LayoutDashboard },
     { id: 'sessions', name: 'Sessions', icon: Phone },
@@ -30,7 +32,7 @@ export default function DashboardSidebar({ activeTab, setActiveTab, isMockMode }
       </div>
 
       {/* Mode Status Indicator */}
-      <div className="px-6 py-4 border-b border-zinc-800/50">
+      <div className="px-6 py-4 border-b border-zinc-800/50 flex flex-col space-y-2">
         <div className={`flex items-center space-x-2.5 rounded-lg px-3 py-2 text-xs font-semibold ${
           isMockMode 
             ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' 
@@ -39,6 +41,21 @@ export default function DashboardSidebar({ activeTab, setActiveTab, isMockMode }
           <span className={`w-2 h-2 rounded-full ${isMockMode ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400 animate-pulse'}`} />
           <span>{isMockMode ? 'Local Simulation Mode' : 'Connected to Supabase'}</span>
         </div>
+        {isMockMode ? (
+          <button 
+            onClick={onAuthClick}
+            className="w-full py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg text-xs font-semibold transition-all duration-200 shadow-md shadow-emerald-500/10 cursor-pointer"
+          >
+            Connect Real Database
+          </button>
+        ) : (
+          <button 
+            onClick={onLogout}
+            className="w-full py-2 bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 border border-zinc-800 rounded-lg text-xs font-semibold transition-all duration-200 cursor-pointer"
+          >
+            Disconnect / Logout
+          </button>
+        )}
       </div>
 
       {/* Navigation Menu */}

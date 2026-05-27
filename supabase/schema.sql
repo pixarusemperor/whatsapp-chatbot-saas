@@ -250,3 +250,26 @@ CREATE POLICY actions_all_policy ON automation_actions
             WHERE w.id = automation_actions.workflow_id AND w.tenant_id = auth.uid()
         )
     );
+
+
+-- ============================================================================
+-- AUTO-CREATE TENANT ON USER SIGNUP
+-- ============================================================================
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger AS $$
+BEGIN
+  INSERT INTO public.tenants (id, name, plan, api_key_type)
+  VALUES (
+    new.id, 
+    COALESCE(new.raw_user_meta_data->>'name', 'New Tenant'), 
+    'free', 
+    'managed'
+  );
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();

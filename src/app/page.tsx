@@ -48,8 +48,52 @@ function DashboardContent() {
     addWorkflow,
     deleteWorkflow,
     toggleWorkflow,
-    triggerIncomingDemoMessage
+    triggerIncomingDemoMessage,
+    signIn,
+    signUp,
+    logOut
   } = useDashboard();
+
+  // Auth Form State
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [isSignUpMode, setIsSignUpMode] = useState<boolean>(false);
+  const [authEmail, setAuthEmail] = useState<string>('');
+  const [authPassword, setAuthPassword] = useState<string>('');
+  const [authName, setAuthName] = useState<string>('');
+  const [authLoading, setAuthLoading] = useState<boolean>(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+
+  const handleLogout = async () => {
+    try {
+      await logOut();
+      alert('Switched back to Local Simulation Mode.');
+    } catch (err: any) {
+      alert(`Logout failed: ${err.message}`);
+    }
+  };
+
+  const handleAuthSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthLoading(true);
+    setAuthError(null);
+    try {
+      if (isSignUpMode) {
+        await signUp(authEmail, authPassword, authName);
+        alert('Account created! Welcome to WatsFlow.');
+      } else {
+        await signIn(authEmail, authPassword);
+        alert('Connected to your real Supabase database successfully!');
+      }
+      setShowAuthModal(false);
+      setAuthEmail('');
+      setAuthPassword('');
+      setAuthName('');
+    } catch (err: any) {
+      setAuthError(err.message || 'Authentication failed');
+    } finally {
+      setAuthLoading(false);
+    }
+  };
 
   // Active Session Details
   const activeSession = sessions.find(s => s.id === activeSessionId) || sessions[0] || null;
@@ -219,7 +263,13 @@ function DashboardContent() {
   return (
     <div className="flex h-screen bg-zinc-950 text-zinc-100 overflow-hidden font-sans">
       {/* Sidebar Component */}
-      <DashboardSidebar activeTab={activeTab} setActiveTab={setActiveTab} isMockMode={isMockMode} />
+      <DashboardSidebar 
+        activeTab={activeTab} 
+        setActiveTab={setActiveTab} 
+        isMockMode={isMockMode} 
+        onAuthClick={() => setShowAuthModal(true)}
+        onLogout={handleLogout}
+      />
 
       {/* Main Layout Area */}
       <main className="flex-1 flex flex-col min-w-0 overflow-y-auto bg-zinc-950 p-8">
@@ -939,6 +989,106 @@ function DashboardContent() {
           </div>
         )}
       </main>
+
+      {/* Auth Modal Overlay */}
+      {showAuthModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-md transition-all duration-300">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 max-w-md w-full shadow-2xl relative mx-4">
+            <button 
+              onClick={() => {
+                setShowAuthModal(false);
+                setAuthError(null);
+              }}
+              className="absolute top-6 right-6 text-zinc-500 hover:text-white transition-colors cursor-pointer text-sm"
+            >
+              ✕
+            </button>
+            
+            <div className="mb-6 flex justify-center">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center font-bold text-white text-lg shadow-lg shadow-emerald-500/25">
+                W
+              </div>
+            </div>
+
+            <h3 className="text-xl font-bold text-white text-center mb-1">
+              {isSignUpMode ? 'Create WatsFlow Account' : 'Connect Real Database'}
+            </h3>
+            <p className="text-zinc-400 text-center text-xs mb-6">
+              {isSignUpMode 
+                ? 'Sign up to map a new tenant and sync live WhatsApp sessions.' 
+                : 'Log in to pull dynamic sessions and group activity logs.'}
+            </p>
+
+            <form onSubmit={handleAuthSubmit} className="space-y-4">
+              {isSignUpMode && (
+                <div>
+                  <label className="block text-zinc-400 text-[10px] uppercase font-bold tracking-wider mb-1.5">Tenant Name</label>
+                  <input 
+                    type="text" 
+                    required 
+                    value={authName}
+                    onChange={(e) => setAuthName(e.target.value)}
+                    placeholder="e.g. My Agency"
+                    className="w-full bg-zinc-950 border border-zinc-800/80 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                  />
+                </div>
+              )}
+              <div>
+                <label className="block text-zinc-400 text-[10px] uppercase font-bold tracking-wider mb-1.5">Email Address</label>
+                <input 
+                  type="email" 
+                  required 
+                  value={authEmail}
+                  onChange={(e) => setAuthEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full bg-zinc-950 border border-zinc-800/80 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-zinc-400 text-[10px] uppercase font-bold tracking-wider mb-1.5">Password</label>
+                <input 
+                  type="password" 
+                  required 
+                  value={authPassword}
+                  onChange={(e) => setAuthPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full bg-zinc-950 border border-zinc-800/80 rounded-xl px-4 py-3 text-xs text-white focus:outline-none focus:border-emerald-500 transition-colors"
+                />
+              </div>
+
+              {authError && (
+                <p className="text-red-400 text-xs text-center font-medium mt-2">{authError}</p>
+              )}
+
+              <button 
+                type="submit" 
+                disabled={authLoading}
+                className="w-full py-3 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 disabled:opacity-50 text-white rounded-xl text-xs font-bold transition-all duration-200 shadow-lg shadow-emerald-500/10 cursor-pointer mt-4 flex items-center justify-center"
+              >
+                {authLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
+                ) : (
+                  isSignUpMode ? 'Sign Up' : 'Log In'
+                )}
+              </button>
+            </form>
+
+            <div className="mt-6 pt-5 border-t border-zinc-800/60 text-center">
+              <button 
+                onClick={() => {
+                  setIsSignUpMode(!isSignUpMode);
+                  setAuthError(null);
+                }}
+                className="text-xs text-zinc-400 hover:text-emerald-400 font-medium transition-colors"
+              >
+                {isSignUpMode 
+                  ? 'Already have an account? Sign In' 
+                  : "Don't have an account? Sign Up"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

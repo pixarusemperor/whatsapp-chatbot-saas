@@ -11,32 +11,47 @@ export async function generateLlmResponse(
   const baseUrl = process.env.LLM_BASE_URL || 'https://api.openai.com/v1';
   const model = process.env.LLM_MODEL || 'gpt-4o-mini';
 
-  if (!apiKey) {
-    console.warn('LLM_API_KEY is not defined. Returning mock response.');
+  // Detect if we are using Ollama (local model, no API key required)
+  const isOllama =
+    baseUrl.includes('localhost') ||
+    baseUrl.includes('127.0.0.1') ||
+    baseUrl.includes('ollama');
+
+  if (!apiKey && !isOllama) {
+    console.warn('LLM_API_KEY is not defined and LLM_BASE_URL is not an Ollama endpoint. Returning mock response.');
     return 'Hello! This is a mock response (LLM API key is not configured).';
   }
 
-  // Format messages according to Chat Completion spec
+  // Format messages according to OpenAI Chat Completion spec (Ollama supports this too)
   const messages: Message[] = [
     { role: 'system', content: systemPrompt },
-    ...history.map(msg => ({
+    ...history.map((msg) => ({
       role: msg.role === 'assistant' ? ('assistant' as const) : ('user' as const),
       content: msg.content,
     })),
   ];
 
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+  };
+
+  // Only add Authorization header for non-Ollama providers
+  if (apiKey && !isOllama) {
+    headers['Authorization'] = `Bearer ${apiKey}`;
+  }
+
   try {
     const url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
+    console.log(`Calling LLM at: ${url} with model: ${model}`);
+
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
+      headers,
       body: JSON.stringify({
-        model: model,
-        messages: messages,
+        model,
+        messages,
         temperature: 0.7,
+        stream: false,
       }),
     });
 

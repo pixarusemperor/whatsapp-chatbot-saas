@@ -89,6 +89,9 @@ interface DashboardContextType {
   addWorkflow: (name: string, keyword: string, actions: Omit<AutomationAction, 'id' | 'workflow_id'>[]) => Promise<any>;
   deleteWorkflow: (id: string) => Promise<any>;
   toggleWorkflow: (id: string) => Promise<any>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
+  logOut: () => Promise<void>;
   triggerIncomingDemoMessage: (text: string, fromNumber?: string) => void;
 }
 
@@ -116,22 +119,38 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
           process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://your-supabase-project.supabase.co';
         
         if (supabaseConfigured) {
-          // Attempt to get active session
           const { data: { session: supabaseSession } } = await supabase.auth.getSession();
           if (supabaseSession?.user) {
             setTenantId(supabaseSession.user.id);
             setIsMockMode(false);
-            return;
+          } else {
+            setIsMockMode(true);
+            setTenantId(MOCK_TENANT_ID);
           }
         }
       } catch (err) {
-        console.warn('Failed to initialize real Supabase client, running in local Simulation Mode.');
+        console.warn('Failed to check auth mode, running in local Simulation Mode.', err);
+        setIsMockMode(true);
+        setTenantId(MOCK_TENANT_ID);
       }
-      setIsMockMode(true);
-      setTenantId(MOCK_TENANT_ID);
     };
 
     checkAuthMode();
+
+    // Listen for auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (session?.user) {
+        setTenantId(session.user.id);
+        setIsMockMode(false);
+      } else {
+        setIsMockMode(true);
+        setTenantId(MOCK_TENANT_ID);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   // LOAD DATA (API or LocalStorage Mocks)
@@ -542,6 +561,30 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // SIGN IN
+  const signIn = async (email: string, password: string) => {
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) throw error;
+  };
+
+  // SIGN UP
+  const signUp = async (email: string, password: string, name: string) => {
+    const { error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: { name }
+      }
+    });
+    if (error) throw error;
+  };
+
+  // LOG OUT
+  const logOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) throw error;
+  };
+
   return (
     <DashboardContext.Provider
       value={{
@@ -562,6 +605,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         deleteWorkflow,
         toggleWorkflow,
         triggerIncomingDemoMessage,
+        signIn,
+        signUp,
+        logOut,
       }}
     >
       {children}
