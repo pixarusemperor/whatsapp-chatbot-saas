@@ -468,29 +468,27 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       syncMockStorage(undefined, undefined, undefined, undefined, updated);
       return newWorkflow;
     } else {
-      // Supabase INSERT (leveraging RLS)
-      const { data: wf, error: wfErr } = await supabase
-        .from('automation_workflows')
-        .insert({ name, trigger_value: cleanKeyword, tenant_id: tenantId })
-        .select()
-        .single();
-      
-      if (wfErr) throw wfErr;
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const response = await fetch('/api/workflows', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          name,
+          trigger_value: cleanKeyword,
+          actions: actionList,
+        }),
+      });
 
-      const actionsToInsert = actionList.map(a => ({
-        workflow_id: wf.id,
-        action_type: a.action_type,
-        message_body: a.message_body,
-        media_url: a.media_url,
-        delay_seconds: a.delay_seconds,
-        action_order: a.action_order,
-      }));
-
-      const { error: actErr } = await supabase.from('automation_actions').insert(actionsToInsert);
-      if (actErr) throw actErr;
+      const res = await response.json();
+      if (!response.ok || !res.success) {
+        throw new Error(res.error || 'Failed to add workflow');
+      }
 
       loadData();
-      return wf;
+      return res.data;
     }
   };
 
@@ -501,8 +499,19 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setWorkflows(updated);
       syncMockStorage(undefined, undefined, undefined, undefined, updated);
     } else {
-      const { error } = await supabase.from('automation_workflows').delete().eq('id', id);
-      if (error) throw error;
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const response = await fetch(`/api/workflows?id=${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      const res = await response.json();
+      if (!response.ok || !res.success) {
+        throw new Error(res.error || 'Failed to delete workflow');
+      }
+
       loadData();
     }
   };
@@ -518,11 +527,24 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setWorkflows(updated);
       syncMockStorage(undefined, undefined, undefined, undefined, updated);
     } else {
-      const { error } = await supabase
-        .from('automation_workflows')
-        .update({ is_active: nextActive })
-        .eq('id', id);
-      if (error) throw error;
+      const token = (await supabase.auth.getSession()).data.session?.access_token;
+      const response = await fetch('/api/workflows', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          id,
+          is_active: nextActive,
+        }),
+      });
+
+      const res = await response.json();
+      if (!response.ok || !res.success) {
+        throw new Error(res.error || 'Failed to toggle workflow');
+      }
+
       loadData();
     }
   };

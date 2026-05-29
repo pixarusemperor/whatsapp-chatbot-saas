@@ -1,12 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase';
 import { generateLlmResponse } from '@/lib/llm';
-import {
-  sendWatsTextMessage,
-  sendWatsImageMessage,
-  sendWatsDocumentMessage,
-  sendPresenceUpdate,
-  decryptWatsMedia,
-} from '@/lib/watssender';
+import { getProvider } from '@/lib/providers';
 
 // Helper function to sleep/delay in serverless functions
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -20,6 +14,7 @@ export async function handleChatbotPipeline(
 ) {
   try {
     const sessionApiKey = originalPayload._session_api_key; // passed in from route
+    const provider = getProvider(sessionApiKey);
     const remoteJid = originalPayload.data.messages.key.remoteJid;
     const isGroup = remoteJid.endsWith('@g.us');
 
@@ -31,7 +26,7 @@ export async function handleChatbotPipeline(
     if (messageType !== 'text') {
       try {
         console.log(`Decrypting media of type ${messageType}...`);
-        const decryptRes = await decryptWatsMedia(sessionApiKey, originalPayload);
+        const decryptRes = await provider.decryptMedia(originalPayload);
         if (decryptRes && decryptRes.success && decryptRes.data?.publicUrl) {
           const tempUrl = decryptRes.data.publicUrl;
           
@@ -111,6 +106,9 @@ export async function handleChatbotPipeline(
       console.log(`Matching workflow found: "${workflow.name}". Executing ${actions.length} actions.`);
 
       for (const action of actions) {
+        // Show typing indicator immediately
+        await provider.sendPresenceUpdate(remoteJid, 'composing');
+
         // Safe typing delay cap to prevent Vercel Hobby timeouts
         const delayMs = Math.min(action.delay_seconds * 1000, 4000); 
         if (delayMs > 0) {
@@ -118,16 +116,12 @@ export async function handleChatbotPipeline(
           await sleep(delayMs);
         }
 
-        // Show typing indicator
-        await sendPresenceUpdate(sessionApiKey, remoteJid, 'composing');
-        await sleep(500); // Small pause for realism
-
         let outgoingMsg: any = null;
 
         // Perform action
         if (action.action_type === 'send_text') {
           console.log('Executing send_text action:', action.message_body);
-          const sendRes = await sendWatsTextMessage(sessionApiKey, remoteJid, action.message_body);
+          const sendRes = await provider.sendTextMessage(remoteJid, action.message_body);
           outgoingMsg = {
             wats_msg_id: sendRes.data?.key?.id || `auto-${Date.now()}`,
             body: action.message_body,
@@ -135,7 +129,7 @@ export async function handleChatbotPipeline(
           };
         } else if (action.action_type === 'send_image') {
           console.log('Executing send_image action:', action.media_url);
-          const sendRes = await sendWatsImageMessage(sessionApiKey, remoteJid, action.media_url, action.message_body);
+          const sendRes = await provider.sendImageMessage(remoteJid, action.media_url, action.message_body);
           outgoingMsg = {
             wats_msg_id: sendRes.data?.key?.id || `auto-${Date.now()}`,
             body: action.message_body || '',
@@ -144,7 +138,7 @@ export async function handleChatbotPipeline(
           };
         } else if (action.action_type === 'send_document') {
           console.log('Executing send_document action:', action.media_url);
-          const sendRes = await sendWatsDocumentMessage(sessionApiKey, remoteJid, action.media_url, action.message_body);
+          const sendRes = await provider.sendDocumentMessage(remoteJid, action.media_url, action.message_body);
           outgoingMsg = {
             wats_msg_id: sendRes.data?.key?.id || `auto-${Date.now()}`,
             body: action.message_body || '',
@@ -214,12 +208,12 @@ export async function handleChatbotPipeline(
     await sleep(typingDelay);
 
     // Send typing presence indicator
-    await sendPresenceUpdate(sessionApiKey, remoteJid, 'composing');
+    await provider.sendPresenceUpdate(remoteJid, 'composing');
     await sleep(500);
 
-    // Send the reply via WatsSender
+    // Send the reply via provider
     console.log('Sending AI reply:', aiReply);
-    const sendRes = await sendWatsTextMessage(sessionApiKey, remoteJid, aiReply);
+    const sendRes = await provider.sendTextMessage(remoteJid, aiReply);
 
     // Log the outgoing AI message in the database
     await supabaseAdmin.from('messages').insert({

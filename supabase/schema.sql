@@ -301,3 +301,68 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+
+-- ============================================================================
+-- 10. SCHEDULED BROADCASTS TABLE (Future Extensibility)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS scheduled_broadcasts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    session_id UUID NOT NULL REFERENCES whatsapp_sessions(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    group_jids TEXT[] NOT NULL,
+    message_body TEXT,
+    media_url TEXT,
+    scheduled_for TIMESTAMP WITH TIME ZONE NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_broadcasts_tenant ON scheduled_broadcasts(tenant_id);
+CREATE INDEX IF NOT EXISTS idx_broadcasts_status ON scheduled_broadcasts(status, scheduled_for);
+
+ALTER TABLE scheduled_broadcasts ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS broadcasts_all_policy ON scheduled_broadcasts;
+CREATE POLICY broadcasts_all_policy ON scheduled_broadcasts
+    FOR ALL USING (tenant_id = auth.uid()) WITH CHECK (tenant_id = auth.uid());
+
+
+-- ============================================================================
+-- 11. SUPABASE STORAGE BUCKET MEDIA INITIALIZATION & RLS POLICIES
+-- ============================================================================
+-- Ensure the media bucket exists in Supabase storage
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES (
+  'media', 
+  'media', 
+  true, 
+  52428800, -- 50MB limit
+  ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'video/mp4', 'audio/mpeg', 'audio/mp4', 'audio/ogg', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document']
+)
+ON CONFLICT (id) DO NOTHING;
+
+-- Storage object policies for RLS
+-- Allow public read access to all files in the media bucket
+DROP POLICY IF EXISTS "Public Read Access" ON storage.objects;
+CREATE POLICY "Public Read Access" ON storage.objects
+    FOR SELECT USING (bucket_id = 'media');
+
+-- Allow authenticated tenants to insert files under their own folder (folder name matches tenant UUID)
+DROP POLICY IF EXISTS "Authenticated Tenant Upload" ON storage.objects;
+CREATE POLICY "Authenticated Tenant Upload" ON storage.objects
+    FOR INSERT WITH CHECK (
+        bucket_id = 'media' 
+        AND auth.uid()::text = (storage.foldername(name))[1]
+    );
+
+-- Allow authenticated tenants to delete files from their own folder
+DROP POLICY IF EXISTS "Authenticated Tenant Delete" ON storage.objects;
+CREATE POLICY "Authenticated Tenant Delete" ON storage.objects
+    FOR DELETE USING (
+        bucket_id = 'media'
+        AND auth.uid()::text = (storage.foldername(name))[1]
+    );
+

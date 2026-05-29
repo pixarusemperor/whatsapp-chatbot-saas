@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { createWatsSession } from '@/lib/watssender';
 
+export const dynamic = 'force-dynamic';
+
+
 // Helper to authenticate request using token in Authorization header
 async function getTenantId(request: NextRequest): Promise<string | null> {
   const authHeader = request.headers.get('Authorization');
