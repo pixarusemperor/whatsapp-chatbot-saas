@@ -251,11 +251,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     } else {
       // API-driven data fetching (all reads go through API routes using supabaseAdmin)
       const fetchRealData = async () => {
+        const headers = { 'x-tenant-id': tenantId };
         try {
           const [sessRes, groupsRes, wfRes] = await Promise.all([
-            fetch('/api/sessions'),
+            fetch('/api/sessions', { headers }),
             fetch('/api/groups'),
-            fetch('/api/workflows'),
+            fetch('/api/workflows', { headers }),
           ]);
 
           if (sessRes.ok) {
