@@ -149,18 +149,36 @@ export async function POST(
       payload._session_api_key = session.wats_api_key;
       payload._db_group_id = dbGroupId;
 
+      // Ignore outgoing messages to prevent self-loops
+      if (fromMe) {
+        return NextResponse.json({ success: true, message: 'Ignored outgoing message' });
+      }
+
       // Schedule background execution using Next.js 15's native after() hook.
-      // This immediately responds 200 OK to WatsSender and executes in the background.
-      after(async () => {
-        console.log(`Starting background processing for event ${event}...`);
-        await handleChatbotPipeline(
+      // Falls back to standard async when after() is unavailable (self-hosted/Coolify).
+      try {
+        after(async () => {
+          console.log(`Starting background processing for event ${event}...`);
+          await handleChatbotPipeline(
+            tenant_id,
+            session_id,
+            chat.id,
+            loggedMessage,
+            payload
+          );
+        });
+      } catch {
+        console.log('after() called outside request scope. Running standard async execution...');
+        handleChatbotPipeline(
           tenant_id,
           session_id,
           chat.id,
           loggedMessage,
           payload
-        );
-      });
+        ).catch((runErr) => {
+          console.error('Background pipeline failed:', runErr);
+        });
+      }
     }
 
     // Always respond 200 OK immediately to prevent WatsSender webhook timeouts and retries

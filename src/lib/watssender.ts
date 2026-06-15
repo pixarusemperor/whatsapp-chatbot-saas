@@ -169,7 +169,7 @@ export async function sendWatsDocumentMessage(
   return data;
 }
 
-export async function sendPresenceUpdate(sessionApiKey: string, to: string, presence: 'composing' | 'recording' | 'paused') {
+export async function sendPresenceUpdate(sessionApiKey: string, jid: string, type: 'composing' | 'recording' | 'paused' | 'available' | 'unavailable') {
   const url = `${BASE_URL}/api/send-presence-update`;
   const response = await fetch(url, {
     method: 'POST',
@@ -177,7 +177,7 @@ export async function sendPresenceUpdate(sessionApiKey: string, to: string, pres
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${sessionApiKey}`,
     },
-    body: JSON.stringify({ to, presence }),
+    body: JSON.stringify({ jid, type }),
   });
 
   const data = await response.json();
