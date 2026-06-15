@@ -110,58 +110,27 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
 
-  // Check if Supabase is configured and reachable → switch to live mode
+  // Check if Supabase is configured → always use live API-driven mode
   useEffect(() => {
-    const checkAuthMode = async () => {
-      try {
-        const supabaseConfigured =
-          process.env.NEXT_PUBLIC_SUPABASE_URL &&
-          process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://your-supabase-project.supabase.co';
+    const checkAuthMode = () => {
+      const supabaseConfigured =
+        process.env.NEXT_PUBLIC_SUPABASE_URL &&
+        process.env.NEXT_PUBLIC_SUPABASE_URL !== 'https://your-supabase-project.supabase.co';
 
-        if (!supabaseConfigured) {
-          setIsMockMode(true);
-          setTenantId(MOCK_TENANT_ID);
-          setIsLoading(false);
-          return;
-        }
-
-        // Try to reach Supabase with a lightweight auth check
-        const { data: { session: supabaseSession } } = await supabase.auth.getSession();
-
-        if (supabaseSession?.user) {
-          // Logged-in user → use their user ID as tenant
-          setTenantId(supabaseSession.user.id);
-          setIsMockMode(false);
-        } else {
-          // No user session, but Supabase IS configured → still use live mode
-          // Use a fixed tenant derived from the project URL for single-tenant mode
-          const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL!.split('//')[1].split('.')[0];
-          setTenantId(projectRef);
-          setIsMockMode(false);
-        }
-      } catch (err) {
-        console.warn('Supabase not reachable, running in Simulation Mode.', err);
+      if (!supabaseConfigured) {
         setIsMockMode(true);
         setTenantId(MOCK_TENANT_ID);
-      } finally {
         setIsLoading(false);
+        return;
       }
+
+      // Always use live mode via API routes (API routes use supabaseAdmin, bypass RLS)
+      const projectRef = process.env.NEXT_PUBLIC_SUPABASE_URL!.split('//')[1].split('.')[0];
+      setTenantId(projectRef);
+      setIsMockMode(false);
     };
 
     checkAuthMode();
-
-    // Listen for auth state changes (login/logout)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session?.user) {
-        setTenantId(session.user.id);
-        setIsMockMode(false);
-      }
-      // Note: on sign-out we stay in live mode (just without user-specific tenant)
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
   }, []);
 
   // LOAD DATA (API or LocalStorage Mocks)
@@ -280,69 +249,35 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       }
       setIsLoading(false);
     } else {
-      // Real Supabase data fetching via API routes (uses service role server-side, bypasses RLS)
+      // API-driven data fetching (all reads go through API routes using supabaseAdmin)
       const fetchRealData = async () => {
         try {
-          // Fetch sessions
-          const { data: dbSessions, error: sessErr } = await supabase
-            .from('whatsapp_sessions')
-            .select('*')
-            .order('created_at', { ascending: false });
+          const [sessRes, groupsRes, wfRes] = await Promise.all([
+            fetch('/api/sessions'),
+            fetch('/api/groups'),
+            fetch('/api/workflows'),
+          ]);
 
-          // Fetch groups
-          const { data: dbGroups } = await supabase
-            .from('groups')
-            .select('*')
-            .order('updated_at', { ascending: false });
-
-          // Fetch workflows with their actions
-          const { data: dbWorkflows } = await supabase
-            .from('automation_workflows')
-            .select('*, automation_actions(*)')
-            .order('created_at', { ascending: false });
-
-          if (dbSessions) {
+          if (sessRes.ok) {
+            const sessData = await sessRes.json();
+            const dbSessions = sessData.data || [];
             setSessions(dbSessions);
             if (dbSessions.length > 0) setActiveSessionId(dbSessions[0].id);
           }
 
-          if (dbGroups) {
-            setGroups(dbGroups);
-            // Fetch group members for each group
-            const membersMap: Record<string, GroupMember[]> = {};
-            for (const g of dbGroups) {
-              const { data: dbMembers } = await supabase
-                .from('group_members')
-                .select('*')
-                .eq('group_id', g.id)
-                .is('left_at', null);
-              if (dbMembers) membersMap[g.id] = dbMembers;
-            }
-            setGroupMembers(membersMap);
+          if (groupsRes.ok) {
+            const groupsData = await groupsRes.json();
+            if (groupsData.data) setGroups(groupsData.data);
+            if (groupsData.members) setGroupMembers(groupsData.members);
           }
 
-          if (dbWorkflows) setWorkflows(dbWorkflows);
-
-          // Fetch recent messages
-          if (dbSessions && dbSessions.length > 0) {
-            const sessionIds = dbSessions.map((s: any) => s.id);
-            const { data: dbChats } = await supabase
-              .from('chats')
-              .select('id')
-              .in('session_id', sessionIds);
-            const chatIds = dbChats?.map((c: any) => c.id) || [];
-            if (chatIds.length > 0) {
-              const { data: dbMessages } = await supabase
-                .from('messages')
-                .select('*')
-                .in('chat_id', chatIds)
-                .order('created_at', { ascending: false })
-                .limit(200);
-              if (dbMessages) setMessages(dbMessages.reverse());
-            }
+          if (wfRes.ok) {
+            const wfData = await wfRes.json();
+            const dbWorkflows = wfData.data || [];
+            setWorkflows(dbWorkflows);
           }
         } catch (err) {
-          console.error('Error fetching Supabase data:', err);
+          console.error('Error fetching dashboard data via API:', err);
         } finally {
           setIsLoading(false);
         }
@@ -381,12 +316,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setActiveSessionId(newSession.id);
       return newSession;
     } else {
-      // API call to our backend route
       const response = await fetch('/api/sessions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          'x-tenant-id': tenantId,
         },
         body: JSON.stringify({ name, phone_number: phoneNumber }),
       });
@@ -415,9 +349,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
     } else {
       const response = await fetch(`/api/sessions/${id}/connect`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
+        headers: { 'x-tenant-id': tenantId },
       });
       const res = await response.json();
       if (!res.success) throw new Error(res.error);
@@ -429,15 +361,12 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
   // SYNC GROUPS
   const syncGroups = async (id: string) => {
     if (isMockMode) {
-      // Simulate fresh groups and members added
       await sleep(1500);
       return { success: true };
     } else {
       const response = await fetch(`/api/sessions/${id}/sync`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-        },
+        headers: { 'x-tenant-id': tenantId },
       });
       const res = await response.json();
       if (!res.success) throw new Error(res.error);
@@ -468,12 +397,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       syncMockStorage(undefined, undefined, undefined, undefined, updated);
       return newWorkflow;
     } else {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
       const response = await fetch('/api/workflows', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': tenantId,
         },
         body: JSON.stringify({
           name,
@@ -499,12 +427,9 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setWorkflows(updated);
       syncMockStorage(undefined, undefined, undefined, undefined, updated);
     } else {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
       const response = await fetch(`/api/workflows?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'x-tenant-id': tenantId },
       });
 
       const res = await response.json();
@@ -527,12 +452,11 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
       setWorkflows(updated);
       syncMockStorage(undefined, undefined, undefined, undefined, updated);
     } else {
-      const token = (await supabase.auth.getSession()).data.session?.access_token;
       const response = await fetch('/api/workflows', {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          'x-tenant-id': tenantId,
         },
         body: JSON.stringify({
           id,

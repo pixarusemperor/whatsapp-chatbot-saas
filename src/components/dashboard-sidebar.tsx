@@ -15,6 +15,7 @@ export default function DashboardSidebar({ activeTab, setActiveTab, isMockMode, 
     { id: 'sessions', name: 'Sessions', icon: Phone },
     { id: 'groups', name: 'Groups Tracking', icon: Users },
     { id: 'automations', name: 'Automation Workflows', icon: ShieldAlert },
+    { id: 'campaigns', name: 'Campaigns', icon: BarChart3 },
     { id: 'analytics', name: 'Analytics & Graph', icon: BarChart3 },
   ];
 
@@ -63,15 +64,29 @@ export default function DashboardSidebar({ activeTab, setActiveTab, isMockMode, 
         {menuItems.map((item) => {
           const Icon = item.icon;
           const isActive = activeTab === item.id;
+          const isCampaigns = item.id === 'campaigns';
+          const baseClasses = `w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group`;
+          const activeClasses = 'bg-zinc-800 text-white font-semibold shadow-inner border-l-4 border-emerald-400 pl-3';
+          const inactiveClasses = 'hover:bg-zinc-900/50 text-zinc-400 hover:text-zinc-200';
+
+          if (isCampaigns) {
+            return (
+              <a
+                key={item.id}
+                href="/campaigns"
+                className={`${baseClasses} ${inactiveClasses}`}
+              >
+                <Icon className="w-5 h-5 text-zinc-500 group-hover:text-zinc-400" />
+                <span>{item.name}</span>
+              </a>
+            );
+          }
+
           return (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`w-full flex items-center space-x-3.5 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 group ${
-                isActive
-                  ? 'bg-zinc-800 text-white font-semibold shadow-inner border-l-4 border-emerald-400 pl-3'
-                  : 'hover:bg-zinc-900/50 text-zinc-400 hover:text-zinc-200'
-              }`}
+              className={`${baseClasses} ${isActive ? activeClasses : inactiveClasses}`}
             >
               <Icon className={`w-5 h-5 transition-transform duration-200 ${
                 isActive ? 'text-emerald-400' : 'text-zinc-500 group-hover:text-zinc-400'
