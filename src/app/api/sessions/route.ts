@@ -27,15 +27,9 @@ async function getTenantId(request: NextRequest): Promise<string | null> {
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = await getTenantId(request);
-    if (!tenantId) {
-      return NextResponse.json({ success: false, error: 'Unauthorized' }, { status: 401 });
-    }
-
     const { data: sessions, error } = await supabaseAdmin
       .from('whatsapp_sessions')
       .select('*')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;

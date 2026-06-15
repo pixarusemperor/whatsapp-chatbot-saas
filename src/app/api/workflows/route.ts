@@ -22,16 +22,10 @@ async function getTenantId(request: NextRequest): Promise<string | null> {
 }
 
 export async function GET(request: NextRequest) {
-  const tenantId = await getTenantId(request);
-  if (!tenantId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   try {
     const { data: workflows, error } = await supabaseAdmin
       .from('automation_workflows')
       .select('*, automation_actions(*)')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
