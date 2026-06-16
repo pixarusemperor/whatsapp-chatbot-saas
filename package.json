@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "node scripts/migrate.js",
-    "deploy": "node scripts/deploy.js"
+    "deploy": "node scripts/deploy.js",
+    "test": "npx tsx scripts/test-provider-registry.ts && npx tsx scripts/test-watssender-provider.ts && npx tsx scripts/test-webhook-workflow.ts && npx tsx scripts/test-workflows-api.ts && npx tsx scripts/test-media-upload.ts && node scripts/test-frontend-render.js"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.106.2",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@total-typescript/shoehorn": "^0.1.2",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
@@ -29,6 +31,7 @@
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.9"
   }
 }

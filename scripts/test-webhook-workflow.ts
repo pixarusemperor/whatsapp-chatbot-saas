@@ -1,10 +1,12 @@
+import { fromPartial, fromAny } from '@total-typescript/shoehorn';
+
 // Set environment variables before imports
 process.env.NEXT_PUBLIC_SUPABASE_URL = 'https://mock-supabase-url.supabase.co';
 process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = 'mock-anon-key';
 process.env.SUPABASE_SERVICE_ROLE_KEY = 'mock-service-role-key';
 
 // Mock global WebSocket to satisfy Supabase Realtime in Node < 22
-global.WebSocket = class {} as any;
+global.WebSocket = fromAny(class {});
 
 import Module from 'module';
 
@@ -45,7 +47,7 @@ Module.prototype.require = function (id) {
       }
     };
   }
-  return originalRequire.apply(this, arguments as any);
+  return originalRequire.apply(this, fromAny(arguments));
 };
 
 // Assert helper
@@ -65,10 +67,10 @@ global.fetch = (url: any, options: any) => {
     options,
     timestamp: Date.now()
   });
-  return Promise.resolve({
+  return Promise.resolve(fromPartial({
     ok: true,
     json: () => Promise.resolve({ success: true, data: { key: { id: 'reply-msg-123' } } }),
-  } as Response);
+  }));
 };
 
 async function runTests() {

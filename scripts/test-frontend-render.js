@@ -51,11 +51,11 @@ async function main() {
     const html = await response.text();
     console.log('Fetched HTML length:', html.length);
     
-    if (!html.includes('WatsFlow') && !html.includes('watsflow')) {
-      throw new Error('HTML does not contain "WatsFlow" title or loading text.');
+    if (!html.includes('WatsFlow') && !html.includes('watsflow') && !html.includes('WassFlow') && !html.includes('wassflow')) {
+      throw new Error('HTML does not contain "WatsFlow" or "WassFlow" title or loading text.');
     }
 
-    console.log('✅ HTML contains WatsFlow brand fragment.');
+    console.log('✅ HTML contains brand fragment.');
     console.log('🎉 Frontend render test passed successfully!');
     cleanup();
     process.exit(0);

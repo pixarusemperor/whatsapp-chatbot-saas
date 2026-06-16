@@ -1,4 +1,5 @@
 import { WatsSenderProvider } from '../src/lib/providers/watssender-provider';
+import { fromPartial } from '@total-typescript/shoehorn';
 
 function assert(condition: any, message: string) {
   if (!condition) {
@@ -12,10 +13,10 @@ let lastFetchCall: { url: string; options: any } | null = null;
 
 global.fetch = (url: any, options: any) => {
   lastFetchCall = { url: String(url), options };
-  return Promise.resolve({
+  return Promise.resolve(fromPartial({
     ok: true,
     json: () => Promise.resolve({ success: true, data: { key: { id: 'mock-id' } } }),
-  } as Response);
+  }));
 };
 
 function getCall(): { url: string; options: any } {
