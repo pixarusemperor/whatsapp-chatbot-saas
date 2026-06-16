@@ -4,7 +4,7 @@ import "./globals.css";
 
 const inter = Inter({
   variable: "--font-inter",
-  subsets: ["sans"],
+  subsets: ["latin"],
 });
 
 const outfit = Outfit({
