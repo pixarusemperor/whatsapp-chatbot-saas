@@ -62,7 +62,8 @@ export async function decryptWatsMedia(sessionApiKey: string, webhookPayload: an
 
 export async function getWatsGroups(sessionApiKey: string, params?: any) {
   const client = new WhatsAppClient({ sessionApiKey });
-  return client.getGroups(params);
+  const groups = await client.getGroups(params);
+  return { success: true, data: groups };
 }
 
 export async function getWatsGroupParticipants(sessionApiKey: string, groupJid: string) {

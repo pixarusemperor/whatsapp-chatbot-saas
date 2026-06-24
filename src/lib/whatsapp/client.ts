@@ -65,7 +65,7 @@ export class WhatsAppClient {
     if (error) {
       console.warn('Could not fetch PAT from database:', error.message);
     }
-    return data?.wassenger_pat || process.env.WASSENGER_PAT || '';
+    return data?.wassenger_pat || process.env.WATSSENDER_MASTER_PAT || process.env.WASSENGER_PAT || '';
   }
 
   private getHeaders(authType: 'pat' | 'session') {
@@ -85,6 +85,36 @@ export class WhatsAppClient {
     return headers;
   }
 
+  /**
+   * Helper to handle fetch responses.
+   * Prevents crash on non-JSON response bodies (e.g. 502 Bad Gateway) and retains error details.
+   */
+  private async handleResponse(res: Response): Promise<any> {
+    if (!res.ok) {
+      let errorMessage = `HTTP Error ${res.status}: ${res.statusText}`;
+      try {
+        const text = await res.text();
+        try {
+          const parsed = JSON.parse(text);
+          errorMessage = parsed.error || parsed.message || errorMessage;
+        } catch {
+          errorMessage = text || errorMessage;
+        }
+      } catch (err) {
+        console.warn('Failed to read error response:', err);
+      }
+      const error = new Error(errorMessage) as any;
+      error.status = res.status;
+      throw error;
+    }
+
+    try {
+      return await res.json();
+    } catch (err: any) {
+      throw new Error(`WhatsAppClient: Failed to parse success response as JSON: ${err.message}`);
+    }
+  }
+
   // ============================================================================
   // ACCOUNT LEVEL ENDPOINTS (Requires Personal Access Token - PAT)
   // ============================================================================
@@ -92,13 +122,8 @@ export class WhatsAppClient {
   async getSessions(): Promise<WhatsAppSession[]> {
     const headers = this.getHeaders('pat');
     const res = await fetch(`${BASE_URL}/api/whatsapp-sessions`, { headers });
+    const body = await this.handleResponse(res);
     
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`WhatsAppClient: Failed to list sessions (status ${res.status}): ${text}`);
-    }
-    
-    const body = await res.json();
     return (body.data || []).map((item: any) => ({
       id: String(item.id),
       name: item.name || '',
@@ -134,9 +159,10 @@ export class WhatsAppClient {
       }),
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || `WhatsAppClient: Failed to create session: ${res.statusText}`);
+    const data = await this.handleResponse(res);
+    // Normalize id to string for consistency with getSessions if present
+    if (data && data.data && data.data.id !== undefined) {
+      data.data.id = String(data.data.id);
     }
     return data;
   }
@@ -147,12 +173,7 @@ export class WhatsAppClient {
       method: 'POST',
       headers,
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || `WhatsAppClient: Failed to connect session: ${res.statusText}`);
-    }
-    return data;
+    return this.handleResponse(res);
   }
 
   async getQrCode(sessionId: string | number): Promise<any> {
@@ -161,12 +182,7 @@ export class WhatsAppClient {
       method: 'GET',
       headers,
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || `WhatsAppClient: Failed to get QR code: ${res.statusText}`);
-    }
-    return data;
+    return this.handleResponse(res);
   }
 
   async deleteSession(sessionId: string | number): Promise<any> {
@@ -175,12 +191,7 @@ export class WhatsAppClient {
       method: 'DELETE',
       headers,
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || `WhatsAppClient: Failed to delete session: ${res.statusText}`);
-    }
-    return data;
+    return this.handleResponse(res);
   }
 
   async updateWebhook(sessionId: string | number, webhookUrl: string): Promise<any> {
@@ -193,12 +204,7 @@ export class WhatsAppClient {
         webhook_enabled: true,
       }),
     });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`WhatsAppClient: Failed to update webhook (status ${res.status}): ${text}`);
-    }
-    return res.json();
+    return this.handleResponse(res);
   }
 
   // ============================================================================
@@ -211,12 +217,7 @@ export class WhatsAppClient {
       method: 'GET',
       headers,
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || `WhatsAppClient: Failed to get status: ${res.statusText}`);
-    }
-    return data;
+    return this.handleResponse(res);
   }
 
   async sendMessage(to: string, payload: Omit<SendMessagePayload, 'to'>): Promise<any> {
@@ -226,14 +227,7 @@ export class WhatsAppClient {
       headers,
       body: JSON.stringify({ to, ...payload }),
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      const error = new Error(data.error || `WhatsAppClient: Failed to send message: ${res.statusText}`) as any;
-      error.status = res.status;
-      throw error;
-    }
-    return data;
+    return this.handleResponse(res);
   }
 
   async sendPresence(jid: string, type: 'composing' | 'recording' | 'paused' | 'available' | 'unavailable'): Promise<any> {
@@ -243,12 +237,7 @@ export class WhatsAppClient {
       headers,
       body: JSON.stringify({ jid, type }),
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || `WhatsAppClient: Failed to send presence update: ${res.statusText}`);
-    }
-    return data;
+    return this.handleResponse(res);
   }
 
   async markMessageAsRead(messageKey: { id: string; remoteJid: string; fromMe: boolean }): Promise<any> {
@@ -258,12 +247,7 @@ export class WhatsAppClient {
       headers,
       body: JSON.stringify({ key: messageKey }),
     });
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`WhatsAppClient: Failed to mark message as read (status ${res.status}): ${text}`);
-    }
-    return res.json();
+    return this.handleResponse(res);
   }
 
   async decryptMedia(payload: any): Promise<any> {
@@ -273,12 +257,7 @@ export class WhatsAppClient {
       headers,
       body: JSON.stringify(payload),
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || `WhatsAppClient: Failed to decrypt media: ${res.statusText}`);
-    }
-    return data;
+    return this.handleResponse(res);
   }
 
   async getGroups(params?: { paginated?: boolean; page?: number; limit?: number }): Promise<WhatsAppGroup[]> {
@@ -293,16 +272,13 @@ export class WhatsAppClient {
       headers,
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || `WhatsAppClient: Failed to get groups: ${res.statusText}`);
-    }
-
+    const data = await this.handleResponse(res);
     const items = Array.isArray(data)
       ? data
       : (Array.isArray(data?.data)
         ? data.data
         : (Array.isArray(data?.groups) ? data.groups : []));
+        
     return items.map((item: any) => ({
       jid: item.jid || item.id || '',
       name: item.name || item.subject || '',
@@ -316,12 +292,7 @@ export class WhatsAppClient {
       method: 'GET',
       headers,
     });
-
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || `WhatsAppClient: Failed to get group participants: ${res.statusText}`);
-    }
-    return data;
+    return this.handleResponse(res);
   }
 
   async getGroupMetadata(groupJid: string): Promise<GroupMetadata> {
@@ -331,17 +302,12 @@ export class WhatsAppClient {
       headers,
     });
 
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`WhatsAppClient: Failed to get group metadata (status ${res.status}): ${text}`);
-    }
-
-    const body = await res.json();
-    const data = body.data || body;
+    const data = await this.handleResponse(res);
+    const resolvedData = data.data || data;
     return {
-      id: data.id || data.jid || '',
-      subject: data.subject || data.name || '',
-      participants: (data.participants || []).map((p: any) => ({
+      id: resolvedData.id || resolvedData.jid || '',
+      subject: resolvedData.subject || resolvedData.name || '',
+      participants: (resolvedData.participants || []).map((p: any) => ({
         id: p.id || p.jid || '',
         isAdmin: !!p.isAdmin,
         isSuperAdmin: !!p.isSuperAdmin,

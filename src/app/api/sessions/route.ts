@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { createWatsSession } from '@/lib/watssender';
+import { WhatsAppClient } from '@/lib/whatsapp/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -135,19 +136,9 @@ export async function POST(request: NextRequest) {
     // This completes the pipeline wiring!
     const webhookUrl = `${request.nextUrl.origin}/api/webhooks/whatsapp/${tenantId}/${dbSession.id}`;
     
-    // Call WatsSender Session Update API via our PAT
-    const updateUrl = `https://wasenderapi.com/api/whatsapp-sessions/${watsSession.id}`;
-    await fetch(updateUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${watsPatToken}`,
-      },
-      body: JSON.stringify({
-        webhook_url: webhookUrl,
-        webhook_enabled: true,
-      }),
-    });
+    // Call WatsSender Session Update API via our consolidated WhatsAppClient
+    const client = new WhatsAppClient({ pat: watsPatToken });
+    await client.updateWebhook(watsSession.id, webhookUrl);
 
     return NextResponse.json({ success: true, data: dbSession });
   } catch (error: any) {

@@ -1,7 +1,16 @@
 import { createClient } from '@supabase/supabase-js';
 
 if (typeof window === 'undefined' && typeof global !== 'undefined' && !global.WebSocket) {
-  (global as any).WebSocket = class {};
+  (global as any).WebSocket = class MockWebSocket {
+    url: string = '';
+    readyState: number = 3; // CLOSED
+    constructor(url: string) { this.url = url; }
+    send() {}
+    close() {}
+    addEventListener() {}
+    removeEventListener() {}
+    dispatchEvent() { return true; }
+  };
 }
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
