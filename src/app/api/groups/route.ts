@@ -49,17 +49,51 @@ export async function GET(req: NextRequest) {
 
     if (error) throw error;
 
+    // Fetch active session phone numbers to resolve "My Role"
+    const { data: sessions } = await supabaseAdmin
+      .from('whatsapp_sessions')
+      .select('id, phone_number');
+
+    const sessionPhoneMap: Record<string, string> = {};
+    for (const s of sessions || []) {
+      if (s.phone_number) {
+        sessionPhoneMap[s.id] = s.phone_number.replace(/\D/g, '');
+      }
+    }
+
     const membersMap: Record<string, any[]> = {};
+    const mappedGroups = [];
+
     for (const g of groups || []) {
       const { data: members } = await supabaseAdmin
         .from('group_members')
         .select('*')
         .eq('group_id', g.id)
         .is('left_at', null);
-      if (members) membersMap[g.id] = members;
+      
+      const activeMembers = members || [];
+      membersMap[g.id] = activeMembers;
+
+      // Determine My Role in this group
+      const myPhone = sessionPhoneMap[g.session_id];
+      let myRole: 'admin' | 'member' = 'member';
+      if (myPhone) {
+        const me = activeMembers.find(m => m.member_jid.startsWith(myPhone) || m.phone_number === myPhone);
+        if (me && (me.role === 'admin' || me.role === 'superadmin')) {
+          myRole = 'admin';
+        }
+      }
+
+      mappedGroups.push({
+        ...g,
+        jid: g.group_jid,
+        name: g.name || 'Unnamed Group',
+        participantCount: activeMembers.length,
+        role: myRole
+      });
     }
 
-    return NextResponse.json({ success: true, data: groups, members: membersMap });
+    return NextResponse.json({ success: true, data: mappedGroups, members: membersMap });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });
   }

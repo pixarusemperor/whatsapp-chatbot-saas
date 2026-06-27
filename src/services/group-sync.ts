@@ -10,7 +10,7 @@ export async function syncGroupsAndMembers(
     console.log(`Starting Group Sync for tenant: ${tenantId}, session: ${sessionId}`);
 
     // 1. Fetch all groups from WatsSender API
-    const groupsResponse = await getWatsGroups(sessionApiKey);
+    const groupsResponse = await getWatsGroups(sessionApiKey) as any;
     if (!groupsResponse.success || !groupsResponse.data) {
       throw new Error(groupsResponse.error || 'Failed to fetch groups from WatsSender');
     }
@@ -18,7 +18,7 @@ export async function syncGroupsAndMembers(
     const watsGroups = groupsResponse.data;
     console.log(`Found ${watsGroups.length} groups on WatsSender.`);
 
-    for (const wg of watsGroups) {
+    for (const wg of watsGroups as any[]) {
       const groupJid = wg.jid;
       const groupName = wg.name || 'WhatsApp Group';
       const imgUrl = wg.imgUrl || null;
