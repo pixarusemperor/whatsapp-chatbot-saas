@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase';
 import { createWatsSession } from '@/lib/watssender';
 import { WhatsAppClient } from '@/lib/whatsapp/client';
+import { getWasenderPat, getWasenderSessions } from '@/lib/wasender';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,12 +29,51 @@ async function getTenantId(request: NextRequest): Promise<string | null> {
 
 export async function GET(request: NextRequest) {
   try {
-    const { data: sessions, error } = await supabaseAdmin
+    let { data: sessions, error } = await supabaseAdmin
       .from('whatsapp_sessions')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+
+    // Auto-sync sessions from WatsSender if local DB is empty
+    if (!sessions || sessions.length === 0) {
+      try {
+        const pat = await getWasenderPat();
+        if (pat) {
+          const liveSessions = await getWasenderSessions(pat);
+          if (liveSessions && liveSessions.length > 0) {
+            // Get first tenant
+            const { data: tenant } = await supabaseAdmin.from('tenants').select('id').limit(1).single();
+            const tenantId = tenant?.id || '18d3d907-45f9-4087-8450-a4edf8a004a2';
+
+            for (const ls of liveSessions) {
+              await supabaseAdmin
+                .from('whatsapp_sessions')
+                .insert({
+                  tenant_id: tenantId,
+                  wats_session_id: parseInt(ls.id),
+                  wats_api_key: ls.api_key,
+                  wats_webhook_secret: (ls as any).webhook_secret || null,
+                  name: ls.name || 'WatsSender Device',
+                  phone_number: ls.phone,
+                  status: ls.status || 'connected'
+                });
+            }
+
+            // Reload sessions
+            const { data: reloadedSessions } = await supabaseAdmin
+              .from('whatsapp_sessions')
+              .select('*')
+              .order('created_at', { ascending: false });
+            if (reloadedSessions) sessions = reloadedSessions;
+          }
+        }
+      } catch (syncErr) {
+        console.error('Failed to auto-sync sessions on GET:', syncErr);
+      }
+    }
+
     return NextResponse.json({ success: true, data: sessions });
   } catch (error: any) {
     return NextResponse.json({ success: false, error: error.message }, { status: 500 });

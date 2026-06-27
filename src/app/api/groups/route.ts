@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
 
   // Default: read groups from database (used by dashboard and group selector)
   try {
-    const { data: groups, error } = await supabaseAdmin
+    let { data: groups, error } = await supabaseAdmin
       .from('groups')
       .select('*')
       .order('updated_at', { ascending: false });
@@ -50,9 +50,35 @@ export async function GET(req: NextRequest) {
     if (error) throw error;
 
     // Fetch active session phone numbers to resolve "My Role"
-    const { data: sessions } = await supabaseAdmin
+    let { data: sessions } = await supabaseAdmin
       .from('whatsapp_sessions')
-      .select('id, phone_number');
+      .select('id, phone_number, wats_api_key');
+
+    // Auto-sync groups if database is empty but we have active sessions
+    if ((!groups || groups.length === 0) && sessions && sessions.length > 0) {
+      try {
+        console.log('No groups found in database. Syncing groups for active sessions...');
+        // Get first tenant
+        const { data: tenant } = await supabaseAdmin.from('tenants').select('id').limit(1).single();
+        const tenantId = tenant?.id || '18d3d907-45f9-4087-8450-a4edf8a004a2';
+
+        const { syncGroupsAndMembers } = await import('@/services/group-sync');
+        for (const s of sessions) {
+          if (s.wats_api_key) {
+            await syncGroupsAndMembers(tenantId, s.id, s.wats_api_key);
+          }
+        }
+
+        // Reload groups
+        const { data: reloadedGroups } = await supabaseAdmin
+          .from('groups')
+          .select('*')
+          .order('updated_at', { ascending: false });
+        if (reloadedGroups) groups = reloadedGroups;
+      } catch (syncErr) {
+        console.error('Failed to auto-sync groups on GET groups:', syncErr);
+      }
+    }
 
     const sessionPhoneMap: Record<string, string> = {};
     for (const s of sessions || []) {
