@@ -55,11 +55,11 @@ export async function syncGroupsAndMembers(
           watsParticipants = participantsRes.data;
         } else {
           console.warn(`Could not sync participants for ${groupName}: ${participantsRes.error}`);
-          continue;
+          // ponytail: save group even if participant sync fails
         }
       } catch (err) {
-        console.error(`Error calling participants API for ${groupName}:`, err);
-        continue;
+        console.warn(`Error calling participants API for ${groupName}:`, err);
+        // ponytail: save group even if participant sync fails
       }
 
       console.log(`Group "${groupName}" has ${watsParticipants.length} participants.`);
