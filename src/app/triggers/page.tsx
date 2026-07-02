@@ -94,9 +94,9 @@ export default function TriggersPage() {
     setError(null);
     try {
       const [trigRes, seqRes, instRes] = await Promise.all([
-        fetch('/api/triggers'),
-        fetch('/api/sequences'),
-        fetch('/api/instances'),
+        fetch('/api/triggers', { cache: 'no-store' }),
+        fetch('/api/sequences', { cache: 'no-store' }),
+        fetch('/api/instances', { cache: 'no-store' }),
       ]);
 
       let trigData = [];
@@ -184,6 +184,32 @@ export default function TriggersPage() {
       }
 
       setSuccess('Trigger keyword registered successfully!');
+
+      // Optimistic update: add the new trigger to the top of the list immediately
+      // so the newest items always appear right away (fixes "last triggers don't display")
+      const created = result.data || {};
+      const newTrigger: Trigger = {
+        ...created,
+        instance_name: instanceName,
+        keyword,
+        match_type: matchType,
+        is_active: isActive,
+        auto_read: autoRead,
+        wf_sequences: !isExperiment
+          ? { name: sequences.find(s => s.id === selectedSequence)?.name || '' }
+          : undefined,
+        trigger_variants: isExperiment
+          ? variants.map((v, idx) => ({
+              id: `temp-${Date.now()}-${idx}`,
+              sequence_id: v.sequence_id,
+              name: v.name,
+              weight: v.weight || 1,
+            }))
+          : undefined,
+        rates: [],
+      };
+      setTriggers(prev => [newTrigger, ...prev]);
+
       setKeyword('');
       setIsExperiment(false);
       setVariants([]);
