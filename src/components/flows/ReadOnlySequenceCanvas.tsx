@@ -1,7 +1,8 @@
 'use client';
 
 import React, { useMemo } from 'react';
-import ReactFlowRaw, {
+import {
+  ReactFlow,
   Background,
   Controls,
   MiniMap,
@@ -13,9 +14,6 @@ import '@xyflow/react/dist/style.css';
 import { wfStepToFlowNode } from '@/lib/flows/mappers';
 import type { WfStep } from '@/lib/flows/mappers';
 import { isSendText } from '@/lib/flows/node-types';
-
-// Suppress ReactFlow JSX type issues from @xyflow (pre-existing in this env; works at runtime/build)
-const ReactFlow = ReactFlowRaw as any;
 
 /**
  * Read-only visual canvas for a sequence.
