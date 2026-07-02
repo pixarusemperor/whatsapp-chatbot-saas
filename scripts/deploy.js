@@ -195,7 +195,7 @@ async function main() {
 
   const missing = required.filter(key => {
     const val = secrets[key];
-    return !val || val.startsWith('ghp_') || val.startsWith('sb_publishable_...') || val.startsWith('sb_secret_...') || val.includes('your-');
+    return !val || val.startsWith('REDACTED_GITHUB_TOKEN') || val.startsWith('sb_publishable_...') || val.startsWith('sb_secret_...') || val.includes('your-');
   });
 
   if (missing.length > 0) {

@@ -1,9 +1,7 @@
-const coolifyToken = '1|cool_YOUR_TOKEN_HERE';
+const coolifyToken = 'REDACTED_COOLIFY_TOKEN';
 const coolifyUrl = 'https://coolifyone.orizongroup.online';
 
-const privateKey = `-----BEGIN OPENSSH PRIVATE KEY-----
-YOUR_PRIVATE_KEY_HERE
------END OPENSSH PRIVATE KEY-----
+REDACTED_SSH_PRIVATE_KEY
 `;
 
 async function main() {

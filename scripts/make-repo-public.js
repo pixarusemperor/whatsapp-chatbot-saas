@@ -1,4 +1,4 @@
-const githubToken = 'ghp_YOUR_GITHUB_PAT_HERE';
+const githubToken = 'REDACTED_GITHUB_TOKEN';
 const repo = 'pixarusemperor/whatsapp-chatbot-saas';
 
 async function main() {

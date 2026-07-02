@@ -1,6 +1,6 @@
 const { execSync } = require('child_process');
 
-const githubToken = 'ghp_YOUR_GITHUB_PAT_HERE';
+const githubToken = 'REDACTED_GITHUB_TOKEN';
 const repo = 'pixarusemperor/whatsapp-chatbot-saas';
 const coolifyDbPassword = 'YOUR_COOLIFY_DB_PASSWORD';
 const appUuid = 'zxt32b72sbm7bsixg1s2rhr8';
