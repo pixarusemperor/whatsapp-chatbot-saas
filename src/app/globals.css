@@ -376,3 +376,343 @@ textarea.form-control { resize: vertical; min-height: 120px; }
 
 .grid-2 { grid-template-columns: 1fr 1fr; gap: 20px; display: grid; }
 @media (max-width: 768px) { .grid-2 { grid-template-columns: 1fr; } }
+
+/* ============================================
+   MODERN SLEEK REDESIGN - Respond.io inspired
+   Clean, premium, spacious, modern SaaS feel
+   ============================================ */
+
+:root {
+  --primary: #2563eb;
+  --primary-hover: #1d4ed8;
+  --primary-light: rgba(37, 99, 235, 0.1);
+  --accent: #10b981;
+  --surface: #0f172a;
+  --surface-2: #1e2937;
+  --border: #334155;
+  --text: #f8fafc;
+  --text-muted: #94a3b8;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 10px 15px -3px rgba(0,0,0,0.1);
+}
+
+/* Sleek Top Bar */
+.topbar {
+  height: 64px;
+  background: #0b1220;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.topbar-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.search-input {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 16px;
+  border-radius: 9999px;
+  font-size: 0.9rem;
+  width: 280px;
+  transition: all 0.2s;
+}
+
+.search-input:focus {
+  border-color: var(--primary);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+/* Modern Cards - Sleek & Spacious */
+.modern-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), 
+              box-shadow 0.2s cubic-bezier(0.4, 0, 0.2, 1),
+              border-color 0.2s;
+}
+
+.modern-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+  border-color: #475569;
+}
+
+.card-header-modern {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.card-body-modern {
+  padding: 24px;
+}
+
+.card-footer-modern {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+/* Sleek Buttons - Respond.io style */
+.btn-sleek {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  border: none;
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.btn-sleek-primary {
+  background: var(--primary);
+  color: white;
+}
+
+.btn-sleek-primary:hover {
+  background: var(--primary-hover);
+  transform: translateY(-1px);
+}
+
+.btn-sleek-secondary {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-sleek-secondary:hover {
+  background: #334155;
+  border-color: #475569;
+}
+
+.btn-sleek-ghost {
+  background: transparent;
+  color: var(--text-muted);
+}
+
+.btn-sleek-ghost:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.btn-sleek-sm {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+}
+
+/* Modern Form Controls */
+.input-sleek {
+  width: 100%;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 0.95rem;
+  transition: all 0.2s;
+}
+
+.input-sleek:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.input-sleek::placeholder {
+  color: var(--text-muted);
+}
+
+/* Sleek Trigger / Automation Cards */
+.automation-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.automation-card:hover {
+  border-color: #475569;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.automation-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+}
+
+.keyword-badge {
+  background: var(--primary-light);
+  color: var(--primary);
+  padding: 4px 14px;
+  border-radius: 9999px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.variant-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.variant-pill {
+  background: #1e2937;
+  color: #94a3b8;
+  font-size: 0.75rem;
+  padding: 2px 10px;
+  border-radius: 9999px;
+  border: 1px solid #334155;
+}
+
+.rate-badge {
+  background: #064e3b;
+  color: #4ade80;
+  font-size: 0.8rem;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-weight: 600;
+}
+
+/* Status toggles sleek */
+.toggle-sleek {
+  position: relative;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.toggle-sleek input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.toggle-slider {
+  position: absolute;
+  cursor: pointer;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #334155;
+  transition: .3s;
+  border-radius: 9999px;
+}
+
+.toggle-slider:before {
+  position: absolute;
+  content: "";
+  height: 18px;
+  width: 18px;
+  left: 3px;
+  bottom: 3px;
+  background-color: white;
+  transition: .3s;
+  border-radius: 50%;
+}
+
+input:checked + .toggle-slider {
+  background-color: var(--primary);
+}
+
+input:checked + .toggle-slider:before {
+  transform: translateX(20px);
+}
+
+/* Modal sleek */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.7);
+  backdrop-filter: blur(4px);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.4);
+}
+
+.modal-header {
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-body {
+  padding: 24px;
+}
+
+.modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+}
+
+/* Sleek empty state */
+.empty-state {
+  text-align: center;
+  padding: 60px 40px;
+  color: var(--text-muted);
+}
+
+.empty-state h4 {
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  .main-content { padding: 20px; }
+  .topbar { padding: 0 16px; }
+  .search-input { width: 180px; }
+}

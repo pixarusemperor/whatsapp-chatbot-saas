@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/app/components/DashboardLayout';
+import { Plus } from 'lucide-react';
 import { enrichTriggersWithRates } from '@/lib/flows/enrich-triggers';
 
 interface Sequence {
@@ -61,6 +62,22 @@ export default function TriggersPage() {
   const [formLoading, setFormLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+
+  // Sleek modal
+  const [showCreateModal, setShowCreateModal] = useState(false);
+
+  const openCreate = () => {
+    setKeyword('');
+    setIsExperiment(false);
+    setVariants([]);
+    setNewVariantName('');
+    setSelectedSequence(sequences[0]?.id || '');
+    setIsActive(true);
+    setAutoRead(true);
+    setError(null);
+    setSuccess(null);
+    setShowCreateModal(true);
+  };
 
   useEffect(() => {
     loadPageData();
@@ -216,21 +233,21 @@ export default function TriggersPage() {
 
   return (
     <DashboardLayout>
-      <div className="page-header">
-        <div className="page-title">
-          <h2>Keyword Triggers</h2>
-          <p>Link trigger keywords on specific phone numbers to message sequences</p>
+      {/* Sleek modern header like respond.io */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
+        <div>
+          <h2 style={{ fontSize: '1.65rem', fontWeight: 700, letterSpacing: '-0.025em', margin: 0 }}>Automations</h2>
+          <p style={{ color: 'var(--text-muted)', margin: '4px 0 0', fontSize: '0.95rem' }}>Keyword triggers &amp; A/B test variants</p>
         </div>
+        <button onClick={openCreate} className="btn-sleek btn-sleek-primary">
+          <Plus className="w-4 h-4" /> New Automation
+        </button>
       </div>
 
-      <div className="grid-2">
-        {/* Trigger Creator Form */}
-        <div>
-          <div className="card">
-            <div className="card-header">
-              <h3>Create Trigger Map</h3>
-            </div>
-            <form onSubmit={handleCreateTrigger}>
+      {/* Sleek list + modal trigger already in header */}
+      <div style={{ marginTop: 8 }}>
+        {/* Sleek modern list will be rendered below. Old form removed for sleek modal version. */}
+      </div>
               <div className="card-body">
                 {error && <div className="alert-danger">{error}</div>}
                 {success && <div className="alert-success">{success}</div>}
@@ -370,140 +387,120 @@ export default function TriggersPage() {
                   )}
                 </div>
 
-                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input
-                    type="checkbox"
-                    id="is-active"
-                    checked={isActive}
-                    onChange={(e) => setIsActive(e.target.checked)}
-                    disabled={formLoading}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                  />
-                  <label htmlFor="is-active" style={{ cursor: 'pointer', fontSize: '0.95rem' }}>
-                    Trigger is active
-                  </label>
+      {/* Old form remnants removed for sleek redesign. Sleek version below. */}
+      </div>
+
+      {/* Sleek automation cards - respond.io style */}
+      {!loading && triggers.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16, marginTop: 8 }}>
+          {triggers.map((trig) => {
+            const hasV = !!(trig.trigger_variants && trig.trigger_variants.length);
+            return (
+              <div key={trig.id} className="automation-card">
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <div>
+                    <div className="keyword-badge">"{trig.keyword}"</div>
+                    <div style={{ fontSize: '.75rem', color: 'var(--text-muted)', marginTop: 4 }}>{trig.match_type} • {trig.instance_name}</div>
+                  </div>
+                  <button onClick={() => handleToggleActive(trig)} className="btn-sleek btn-sleek-ghost btn-sleek-sm" style={{ fontSize: '.7rem' }}>
+                    {trig.is_active ? 'Active' : 'Paused'}
+                  </button>
                 </div>
 
-                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <input
-                    type="checkbox"
-                    id="auto-read"
-                    checked={autoRead}
-                    onChange={(e) => setAutoRead(e.target.checked)}
-                    disabled={formLoading}
-                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
-                  />
-                  <label htmlFor="auto-read" style={{ cursor: 'pointer', fontSize: '0.95rem' }}>
-                    Auto-read message (blue ticks)
-                  </label>
+                {hasV ? (
+                  <div style={{ marginTop: 12 }}>
+                    <div style={{ fontSize: '.78rem', color: 'var(--text-muted)', marginBottom: 4 }}>Variants</div>
+                    <div className="variant-pills">
+                      {(trig.trigger_variants || []).map((v, i) => {
+                        const r = (trig.rates || []).find((x: any) => x.variantId === v.id);
+                        return <span key={i} className="variant-pill">{v.name}{r ? ` · ${(r.rate * 100).toFixed(0)}%` : ''}</span>;
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 10, fontSize: '.9rem' }}>{trig.wf_sequences?.name || '—'}</div>
+                )}
+
+                <div style={{ marginTop: 16, fontSize: '.78rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <button onClick={() => handleToggleAutoRead(trig)} className="btn-sleek btn-sleek-ghost btn-sleek-sm" style={{ fontSize: '.7rem' }}>
+                    {trig.auto_read !== false ? 'Auto-read' : 'Manual'}
+                  </button>
+                  <button onClick={() => handleDeleteTrigger(trig.id)} className="btn-sleek btn-sleek-ghost btn-sleek-sm" style={{ color: '#f87171', fontSize: '.7rem' }}>Delete</button>
                 </div>
               </div>
-              <div className="card-footer">
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={formLoading || instances.length === 0 || sequences.length === 0}
-                >
-                  {formLoading ? 'Creating...' : 'Create Trigger'}
-                </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Sleek Modal */}
+      {showCreateModal && (
+        <div className="modal-backdrop" onClick={() => setShowCreateModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <div style={{ fontWeight: 600 }}>New Automation</div>
+              <button onClick={() => setShowCreateModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
+            </div>
+            <form onSubmit={(e) => { handleCreateTrigger(e); setShowCreateModal(false); }}>
+              <div className="modal-body">
+                {error && <div className="alert-danger" style={{ marginBottom: 12 }}>{error}</div>}
+
+                <div style={{ marginBottom: 14 }}>
+                  <div className="form-label">Device</div>
+                  <select className="input-sleek" value={selectedInstance} onChange={e => setSelectedInstance(e.target.value)} required>
+                    {instances.map(i => <option key={i.id} value={i.id}>{i.name} ({i.phone})</option>)}
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: 14 }}>
+                  <div className="form-label">Keyword</div>
+                  <input className="input-sleek" value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="e.g. hello" required />
+                </div>
+
+                <div style={{ marginBottom: 14 }}>
+                  <div className="form-label">Match</div>
+                  <select className="input-sleek" value={matchType} onChange={e => setMatchType(e.target.value as any)}>
+                    <option value="exact">Exact</option>
+                    <option value="contains">Contains</option>
+                  </select>
+                </div>
+
+                <div style={{ marginBottom: 14 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+                    <div className="form-label" style={{ margin: 0 }}>Mode</div>
+                    <label style={{ fontSize: '.85rem' }}><input type="checkbox" checked={isExperiment} onChange={e=>setIsExperiment(e.target.checked)} /> A/B Test</label>
+                  </div>
+                  {!isExperiment ? (
+                    <select className="input-sleek" value={selectedSequence} onChange={e=>setSelectedSequence(e.target.value)}>
+                      {sequences.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                    </select>
+                  ) : (
+                    <div>
+                      <div style={{ display: 'flex', gap: 8 }}>
+                        <input className="input-sleek" placeholder="Variant name" value={newVariantName} onChange={e=>setNewVariantName(e.target.value)} style={{ flex: 1 }} />
+                        <select className="input-sleek" style={{ width: 120 }} value={newVariantSequence} onChange={e=>setNewVariantSequence(e.target.value)}>
+                          {sequences.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                        <button type="button" className="btn-sleek btn-sleek-primary btn-sleek-sm" onClick={() => { if (newVariantName.trim()) { setVariants([...variants, { sequence_id: newVariantSequence, name: newVariantName.trim() }]); setNewVariantName(''); } }}>+</button>
+                      </div>
+                      {variants.length > 0 && <div className="variant-pills" style={{ marginTop: 6 }}>{variants.map((v,i)=><span key={i} className="variant-pill">{v.name}</span>)}</div>}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', gap: 16, fontSize: '.9rem' }}>
+                  <label><input type="checkbox" checked={isActive} onChange={e=>setIsActive(e.target.checked)} /> Active</label>
+                  <label><input type="checkbox" checked={autoRead} onChange={e=>setAutoRead(e.target.checked)} /> Auto-read</label>
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn-sleek btn-sleek-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
+                <button type="submit" disabled={formLoading} className="btn-sleek btn-sleek-primary">{formLoading ? 'Creating…' : 'Create'}</button>
               </div>
             </form>
           </div>
         </div>
-
-        {/* Existing Triggers List */}
-        <div>
-          <div className="card" style={{ minHeight: '300px' }}>
-            <div className="card-header">
-              <h3>Active Mappings</h3>
-            </div>
-            <div className="card-body">
-              {loading ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--text-secondary)' }}>
-                  Loading trigger maps...
-                </div>
-              ) : triggers.length === 0 ? (
-                <div className="empty-state">
-                  <h4>No triggers created</h4>
-                  <p style={{ marginTop: '8px' }}>Define triggers on the left to map keys to your sequences.</p>
-                </div>
-              ) : (
-                <div className="table-responsive">
-                  <table className="table">
-                    <thead>
-                      <tr>
-                        <th>Keyword</th>
-                        <th>Match</th>
-                        <th>Device</th>
-                        <th>Sequence / Performance</th>
-                        <th>Auto-Read</th>
-                        <th>Status</th>
-                        <th style={{ textAlign: 'right' }}>Action</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {triggers.map((trig) => (
-                        <tr key={trig.id}>
-                          <td style={{ fontWeight: 'bold', color: 'var(--color-primary)' }}>
-                            "{trig.keyword}"
-                          </td>
-                          <td style={{ fontSize: '0.85rem' }}>
-                            <span className={`badge ${trig.match_type === 'contains' ? 'badge-warning' : 'badge-secondary'}`}>
-                              {trig.match_type || 'exact'}
-                            </span>
-                          </td>
-                          <td style={{ fontSize: '0.85rem' }}>{trig.instance_name || trig.instance_id}</td>
-                          <td style={{ fontSize: '0.9rem' }}>
-                            {trig.trigger_variants && trig.trigger_variants.length > 0 ? (
-                              <span>
-                                {trig.trigger_variants.length} variants: {trig.trigger_variants.map((v, i) => v.name).join(', ')}
-                                {trig.rates && trig.rates.length > 0 && (
-                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: 6 }}>
-                                    (rates: {trig.rates.map((r: any) => `${(r.rate * 100).toFixed(0)}%`).join(', ')})
-                                  </span>
-                                )}
-                              </span>
-                            ) : (
-                              trig.wf_sequences?.name || 'Deleted Sequence'
-                            )}
-                          </td>
-                          <td>
-                            <button
-                              onClick={() => handleToggleAutoRead(trig)}
-                              className={`badge ${trig.auto_read !== false ? 'badge-success' : 'badge-secondary'}`}
-                              style={{ border: 'none', cursor: 'pointer' }}
-                            >
-                              {trig.auto_read !== false ? 'Read (Blue)' : 'Unread (Grey)'}
-                            </button>
-                          </td>
-                          <td>
-                            <button
-                              onClick={() => handleToggleActive(trig)}
-                              className={`badge ${trig.is_active ? 'badge-success' : 'badge-secondary'}`}
-                              style={{ border: 'none', cursor: 'pointer' }}
-                            >
-                              {trig.is_active ? 'Active' : 'Inactive'}
-                            </button>
-                          </td>
-                          <td style={{ textAlign: 'right' }}>
-                            <button
-                              onClick={() => handleDeleteTrigger(trig.id)}
-                              className="btn btn-danger btn-sm"
-                              style={{ padding: '4px 8px' }}
-                            >
-                              Delete
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      )}
     </DashboardLayout>
   );
 }

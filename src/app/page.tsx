@@ -69,50 +69,42 @@ export default function Dashboard() {
 
   return (
     <DashboardLayout>
-      <div className="page-header">
-        <div className="page-title">
-          <h2>Dashboard Overview</h2>
-          <p>Real-time status of your WhatsApp devices and automation sequences</p>
-        </div>
+      {/* Sleek Dashboard Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
         <div>
-          <Link href="/sequences/new" className="btn btn-primary" style={{ gap: '8px' }}>
-            <Plus className="w-4 h-4" />
-            <span>New Sequence</span>
-          </Link>
+          <h2 style={{ fontSize: '1.65rem', fontWeight: 700, margin: 0, letterSpacing: '-0.02em' }}>Dashboard</h2>
+          <p style={{ color: 'var(--text-muted)', marginTop: 4, fontSize: '0.95rem' }}>Overview of your automations and connected devices</p>
         </div>
+        <Link href="/sequences/new" className="btn-sleek btn-sleek-primary">
+          <Plus className="w-4 h-4" /> New Sequence
+        </Link>
       </div>
 
-      {/* Stats Cards */}
+      {/* Sleek Stats - respond.io style */}
       <div className="stats-grid">
-        <div className="stat-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <span className="stat-label">Active Workflows</span>
-            <div style={{ padding: '6px', borderRadius: '8px', backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6' }}>
-              <GitFork className="w-4 h-4" />
-            </div>
+        <div className="modern-card" style={{ padding: '20px 24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Active Workflows</span>
+            <GitFork className="w-4 h-4" style={{ color: '#3b82f6' }} />
           </div>
-          <span className="stat-value">{stats.sequences}</span>
-          <span className="stat-subtext">Reusable automation flows</span>
+          <div style={{ fontSize: '2rem', fontWeight: 700, margin: '6px 0 2px' }}>{stats.sequences}</div>
+          <div style={{ fontSize: '.8rem', color: '#4ade80' }}>Reusable automation flows</div>
         </div>
-        <div className="stat-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <span className="stat-label">Keyword Triggers</span>
-            <div style={{ padding: '6px', borderRadius: '8px', backgroundColor: 'rgba(245, 158, 11, 0.1)', color: '#f59e0b' }}>
-              <Zap className="w-4 h-4" />
-            </div>
+        <div className="modern-card" style={{ padding: '20px 24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Keyword Triggers</span>
+            <Zap className="w-4 h-4" style={{ color: '#f59e0b' }} />
           </div>
-          <span className="stat-value">{stats.triggers}</span>
-          <span className="stat-subtext">Active keyword responders</span>
+          <div style={{ fontSize: '2rem', fontWeight: 700, margin: '6px 0 2px' }}>{stats.triggers}</div>
+          <div style={{ fontSize: '.8rem', color: '#4ade80' }}>Active responders</div>
         </div>
-        <div className="stat-card">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-            <span className="stat-label">Inbox Logs</span>
-            <div style={{ padding: '6px', borderRadius: '8px', backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981' }}>
-              <MessageSquare className="w-4 h-4" />
-            </div>
+        <div className="modern-card" style={{ padding: '20px 24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ fontSize: '.8rem', color: 'var(--text-muted)', fontWeight: 600 }}>Inbox Messages</span>
+            <MessageSquare className="w-4 h-4" style={{ color: '#10b981' }} />
           </div>
-          <span className="stat-value">{stats.messages}</span>
-          <span className="stat-subtext">Total tracked inbound/outbound</span>
+          <div style={{ fontSize: '2rem', fontWeight: 700, margin: '6px 0 2px' }}>{stats.messages}</div>
+          <div style={{ fontSize: '.8rem', color: '#4ade80' }}>Tracked conversations</div>
         </div>
       </div>
 

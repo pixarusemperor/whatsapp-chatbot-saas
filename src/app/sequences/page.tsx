@@ -65,16 +65,15 @@ export default function SequencesPage() {
 
   return (
     <DashboardLayout>
-      <div className="page-header">
-        <div className="page-title">
-          <h2>Message Sequences</h2>
-          <p>Create and edit step-by-step automated response workflows</p>
-        </div>
+      {/* Sleek header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 28 }}>
         <div>
-          <Link href="/sequences/new" className="btn btn-primary">
-            + New Sequence
-          </Link>
+          <h2 style={{ fontSize: '1.65rem', fontWeight: 700, margin: 0 }}>Sequences</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '.95rem', marginTop: 4 }}>Automated multi-step response flows</p>
         </div>
+        <Link href="/sequences/new" className="btn-sleek btn-sleek-primary">
+          + New Sequence
+        </Link>
       </div>
 
       {error && <div className="alert-danger">{error}</div>}

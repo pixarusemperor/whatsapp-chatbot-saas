@@ -120,14 +120,39 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Main Panel */}
       <div className="main-wrapper">
-        <header className="navbar">
-          <div>
-            <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', fontWeight: 600, letterSpacing: '0.05em' }}>
-              {pathname === '/' ? 'OVERVIEW' : pathname.split('/')[1].toUpperCase()}
+        {/* Modern Sleek Top Bar - Respond.io inspired */}
+        <header className="topbar">
+          <div className="topbar-left">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <div style={{
+                width: 28, height: 28, borderRadius: 8,
+                background: 'linear-gradient(135deg, #2563eb, #10b981)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                color: 'white', fontWeight: 700, fontSize: '14px'
+              }}>W</div>
+              <span style={{ fontWeight: 600, fontSize: '15px', letterSpacing: '-0.02em' }}>WassFlow</span>
+            </div>
+            <div style={{ width: 1, height: 20, background: 'var(--border)' }} />
+            <span style={{ fontSize: '13px', color: 'var(--text-muted)', fontWeight: 500 }}>
+              {pathname === '/' ? 'Dashboard' : pathname.split('/')[1]?.charAt(0).toUpperCase() + pathname.split('/')[1]?.slice(1) || ''}
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <span className="badge badge-success">● Connected</span>
+
+          <div className="topbar-right">
+            <input 
+              type="text" 
+              placeholder="Search automations, contacts..." 
+              className="search-input" 
+            />
+            <button className="btn-sleek btn-sleek-secondary btn-sleek-sm">
+              <span>●</span> Connected
+            </button>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, paddingLeft: 12, borderLeft: '1px solid var(--border)' }}>
+              <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#334155', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>
+                <User size={14} />
+              </div>
+              <span style={{ fontSize: '13px', fontWeight: 500 }}>{userEmail}</span>
+            </div>
           </div>
         </header>
 
