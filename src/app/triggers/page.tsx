@@ -71,7 +71,9 @@ export default function TriggersPage() {
     setIsExperiment(false);
     setVariants([]);
     setNewVariantName('');
-    setSelectedSequence(sequences[0]?.id || '');
+    const firstSeq = sequences[0]?.id || '';
+    setSelectedSequence(firstSeq);
+    setNewVariantSequence(firstSeq);
     setIsActive(true);
     setAutoRead(true);
     setError(null);
@@ -173,6 +175,7 @@ export default function TriggersPage() {
       setVariants([]);
       setNewVariantName('');
       setAutoRead(true);
+      setShowCreateModal(false);
       loadPageData(); // Reload list
     } catch (err: any) {
       setError(err.message);
@@ -244,153 +247,7 @@ export default function TriggersPage() {
         </button>
       </div>
 
-      {/* Sleek list + modal trigger already in header */}
-      <div style={{ marginTop: 8 }}>
-        {/* Sleek modern list will be rendered below. Old form removed for sleek modal version. */}
-      </div>
-              <div className="card-body">
-                {error && <div className="alert-danger">{error}</div>}
-                {success && <div className="alert-success">{success}</div>}
-
-                <div className="form-group">
-                  <label className="form-label">WhatsApp Number / Device</label>
-                  {instances.length === 0 ? (
-                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                      No active instances. Please set up Wasender API token in settings first.
-                    </div>
-                  ) : (
-                    <select
-                      className="form-control"
-                      value={selectedInstance}
-                      onChange={(e) => setSelectedInstance(e.target.value)}
-                      disabled={formLoading}
-                    >
-                      {instances.map((i) => (
-                        <option key={i.id} value={i.id}>
-                          {i.name} ({i.phone})
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Keyword / Trigger Phrase</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. promo, start, info"
-                    className="form-control"
-                    value={keyword}
-                    onChange={(e) => setKeyword(e.target.value)}
-                    disabled={formLoading}
-                  />
-                </div>
-
-                <div className="form-group">
-                  <label className="form-label">Matching Condition</label>
-                  <select
-                    className="form-control"
-                    value={matchType}
-                    onChange={(e) => setMatchType(e.target.value as any)}
-                    disabled={formLoading}
-                  >
-                    <option value="exact">Exact match (e.g. user sends exactly keyword)</option>
-                    <option value="contains">Phrase match / Contains (e.g. message contains keyword)</option>
-                  </select>
-                </div>
-
-                <div className="form-group">
-                  <div className="flex items-center gap-2 mb-1">
-                    <label className="form-label" style={{ margin: 0 }}>Mode</label>
-                    <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <input
-                        type="checkbox"
-                        checked={isExperiment}
-                        onChange={(e) => setIsExperiment(e.target.checked)}
-                        disabled={formLoading}
-                      />
-                      A/B Test (variants)
-                    </label>
-                  </div>
-
-                  {!isExperiment ? (
-                    <>
-                      <label className="form-label">Trigger Sequence</label>
-                      {sequences.length === 0 ? (
-                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                          No sequences found. Create one first in the Sequences page.
-                        </div>
-                      ) : (
-                        <select
-                          className="form-control"
-                          value={selectedSequence}
-                          onChange={(e) => setSelectedSequence(e.target.value)}
-                          disabled={formLoading}
-                        >
-                          {sequences.map((s) => (
-                            <option key={s.id} value={s.id}>
-                              {s.name}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </>
-                  ) : (
-                    <div style={{ border: '1px solid #ddd', padding: 8, borderRadius: 4, background: '#fafafa' }}>
-                      <div style={{ fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>Variants</div>
-                      {variants.length > 0 && (
-                        <div style={{ fontSize: '0.8rem', marginBottom: 6 }}>
-                          {variants.map((v, i) => (
-                            <span key={i} style={{ display: 'inline-block', background: '#e5e7eb', padding: '1px 4px', marginRight: 4, borderRadius: 2 }}>
-                              {v.name}: {sequences.find(s => s.id === v.sequence_id)?.name}
-                              <button type="button" onClick={() => setVariants(variants.filter((_, idx) => idx !== i))} style={{ marginLeft: 4, color: 'red', fontSize: '10px' }}>×</button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                      <div style={{ display: 'flex', gap: 4 }}>
-                        <input
-                          type="text"
-                          placeholder="Name e.g. Short"
-                          value={newVariantName}
-                          onChange={e => setNewVariantName(e.target.value)}
-                          className="form-control"
-                          style={{ flex: 1, fontSize: '0.8rem', padding: '2px 4px' }}
-                          disabled={formLoading}
-                        />
-                        <select
-                          value={newVariantSequence}
-                          onChange={e => setNewVariantSequence(e.target.value)}
-                          className="form-control"
-                          style={{ fontSize: '0.8rem' }}
-                          disabled={formLoading}
-                        >
-                          {sequences.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (newVariantName.trim() && newVariantSequence) {
-                              setVariants([...variants, { sequence_id: newVariantSequence, name: newVariantName.trim() }]);
-                              setNewVariantName('');
-                            }
-                          }}
-                          disabled={!newVariantName.trim() || !newVariantSequence || formLoading}
-                          style={{ fontSize: '0.75rem', padding: '2px 6px' }}
-                        >
-                          +
-                        </button>
-                      </div>
-                      {variants.length < 2 && <div style={{ fontSize: '0.7rem', color: '#b45309', marginTop: 2 }}>Add 2+ for A/B</div>}
-                    </div>
-                  )}
-                </div>
-
-      {/* Old form remnants removed for sleek redesign. Sleek version below. */}
-      </div>
-
-      {/* Sleek automation cards - respond.io style */}
+      {/* Sleek automation list - respond.io style */}
       {!loading && triggers.length > 0 && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 16, marginTop: 8 }}>
           {triggers.map((trig) => {
@@ -433,6 +290,14 @@ export default function TriggersPage() {
         </div>
       )}
 
+      {!loading && triggers.length === 0 && (
+        <div style={{ textAlign: 'center', padding: '48px 32px', color: 'var(--text-secondary)' }}>
+          No automations yet. Click "New Automation" to create your first trigger.
+        </div>
+      )}
+
+
+
       {/* Sleek Modal */}
       {showCreateModal && (
         <div className="modal-backdrop" onClick={() => setShowCreateModal(false)}>
@@ -441,7 +306,7 @@ export default function TriggersPage() {
               <div style={{ fontWeight: 600 }}>New Automation</div>
               <button onClick={() => setShowCreateModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer' }}>×</button>
             </div>
-            <form onSubmit={(e) => { handleCreateTrigger(e); setShowCreateModal(false); }}>
+            <form onSubmit={handleCreateTrigger}>
               <div className="modal-body">
                 {error && <div className="alert-danger" style={{ marginBottom: 12 }}>{error}</div>}
 

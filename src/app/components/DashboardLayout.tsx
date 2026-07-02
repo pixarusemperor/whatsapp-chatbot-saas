@@ -11,8 +11,7 @@ import {
   Megaphone, 
   Settings, 
   User, 
-  LogOut,
-  Activity
+  LogOut
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -22,13 +21,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [userEmail, setUserEmail] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    setUserEmail('WatsFlow Owner');
-    setLoading(false);
-  }, []);
+  const [userEmail] = useState<string | null>('WatsFlow Owner');
 
   const handleLogout = () => {
     // Single user mode - no-op
@@ -42,25 +35,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { name: 'Campaigns', path: '/campaigns', icon: Megaphone },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
-
-  if (loading) {
-    return (
-      <div className="login-container" style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: 'var(--bg-base)',
-        color: 'var(--text-secondary)',
-        fontFamily: 'var(--font-family-body)'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <Activity className="animate-spin text-emerald-400" />
-          <span>Loading WassFlow...</span>
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="app-layout">
