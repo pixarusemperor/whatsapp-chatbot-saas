@@ -1,6 +1,9 @@
 import { supabaseAdmin } from '@/lib/supabase';
 import { generateLlmResponse } from '@/lib/llm';
 import { getProvider } from '@/lib/providers';
+import { resolveTriggerToExecution } from '@/lib/flows/trigger-resolver'; // Pocock typed integration for variants
+import { executeSequence } from '@/lib/flows/sequence-executor';
+import { markResponseForRecentVariant } from '@/lib/flows/response-tracker';
 
 // Helper function to sleep/delay in serverless functions
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -70,6 +73,10 @@ export async function handleChatbotPipeline(
       }
     }
 
+    // NEW: Mark previous automation variant as responded (for response rate tracking)
+    // TDD implemented, called on every incoming
+    await markResponseForRecentVariant(supabaseAdmin, chatId);
+
     // 2. If it is a group message, log activity and STOP (do not reply with chatbot)
     if (isGroup) {
       console.log('Logging group activity event...');
@@ -82,9 +89,63 @@ export async function handleChatbotPipeline(
       return;
     }
 
-    // 3. CHECK KEYWORD WORKFLOWS (AUTOMATION MATCHING)
     const cleanedText = messageContent.trim().toLowerCase();
-    
+
+    // NEW Pocock typed wf_* + variants path (unification + split testing, TDD driven) - preferred
+    try {
+      const { data: wfTriggers } = await supabaseAdmin
+        .from('wf_triggers')
+        .select('*, trigger_variants(*)')
+        .eq('keyword', cleanedText)
+        .eq('is_active', true)
+        .limit(1);
+
+      if (wfTriggers && wfTriggers.length > 0) {
+        const t = wfTriggers[0];
+        const variantsData = t.trigger_variants || [];
+        const exec = resolveTriggerToExecution({
+          id: t.id,
+          keyword: t.keyword,
+          sequence_id: t.sequence_id,
+          variants: variantsData.map((v: any) => ({
+            id: v.id,
+            sequence_id: v.sequence_id,
+            name: v.name,
+          })),
+        }, chatId);
+
+        console.log(`[wf+variants] Resolved execution for "${t.keyword}": sequence=${exec.sequenceId} variant=${exec.variantId || 'single'}`);
+
+        // Execute using wf_steps (TDD implemented executor)
+        const execResult = await executeSequence(
+          supabaseAdmin,
+          exec.sequenceId,
+          chatId,
+          provider,
+          tenantId,
+          exec.variantId
+        );
+        console.log(`[wf+variants] Executed ${execResult.executedSteps} steps for sequence ${exec.sequenceId}`);
+
+        // Log variant send if applicable (for response tracking)
+        if (exec.variantId) {
+          await supabaseAdmin.from('automation_variant_sends').insert({
+            chat_id: chatId,
+            trigger_id: t.id,
+            variant_id: exec.variantId,
+            sequence_id: exec.sequenceId,
+          });
+        }
+
+        return; // handled by new path
+      }
+    } catch (e) {
+      // ignore during transition
+    }
+
+    // 3. CHECK KEYWORD WORKFLOWS (LEGACY AUTOMATION MATCHING - DEPRECATED PATH)
+    // This fallback will be removed after full migration to wf_*.
+    // New triggers should use the wf_triggers + variants path above.
     // Find active trigger matching this exact trigger keyword
     const { data: workflows, error: wfError } = await supabaseAdmin
       .from('automation_workflows')

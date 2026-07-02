@@ -347,6 +347,47 @@ ON CONFLICT (id) DO NOTHING;
 -- Storage object policies for RLS
 -- Allow public read access to all files in the media bucket
 DROP POLICY IF EXISTS "Public Read Access" ON storage.objects;
+
+-- ============================================================================
+-- VARIANT / SPLIT-TESTING SUPPORT (for multi-response automation experiments)
+-- Added as part of unification + hybrid flows + Pocock-typed architecture.
+-- We standardize on wf_* as canonical. These tables enable:
+-- - Multiple sequences (variants) per trigger/keyword
+-- - Deterministic rotation at execution time
+-- - Response rate tracking (reply after variant send)
+-- ============================================================================
+
+CREATE TABLE IF NOT EXISTS trigger_variants (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    trigger_id UUID NOT NULL,  -- references wf_triggers.id (or unified trigger)
+    sequence_id UUID NOT NULL, -- references wf_sequences.id
+    name TEXT NOT NULL,        -- e.g. "Short", "Detailed", "With CTA"
+    weight INTEGER DEFAULT 1,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMPTZ DEFAULT now() NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_trigger_variants_trigger ON trigger_variants(trigger_id);
+CREATE INDEX IF NOT EXISTS idx_trigger_variants_sequence ON trigger_variants(sequence_id);
+
+-- Tracks which variant was sent to which chat, and whether it got a response.
+-- Used for rotation stats and response rate evaluation.
+CREATE TABLE IF NOT EXISTS automation_variant_sends (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    chat_id UUID NOT NULL,           -- references chats.id
+    trigger_id UUID,
+    variant_id UUID REFERENCES trigger_variants(id),
+    sequence_id UUID,                -- the chosen one
+    sent_at TIMESTAMPTZ DEFAULT now() NOT NULL,
+    responded BOOLEAN DEFAULT false,
+    responded_at TIMESTAMPTZ,
+    -- Optional: link to the actual message for richer attribution
+    message_id UUID REFERENCES messages(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_variant_sends_chat ON automation_variant_sends(chat_id, sent_at);
+CREATE INDEX IF NOT EXISTS idx_variant_sends_variant ON automation_variant_sends(variant_id, sent_at);
+CREATE INDEX IF NOT EXISTS idx_variant_sends_responded ON automation_variant_sends(responded, sent_at);
 CREATE POLICY "Public Read Access" ON storage.objects
     FOR SELECT USING (bucket_id = 'media');
 

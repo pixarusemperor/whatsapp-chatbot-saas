@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import DashboardLayout from '@/app/components/DashboardLayout';
+import { enrichTriggersWithRates } from '@/lib/flows/enrich-triggers';
 
 interface Sequence {
   id: string;
@@ -14,19 +15,29 @@ interface Instance {
   phone: string;
 }
 
+interface Variant {
+  id?: string;
+  sequence_id: string;
+  name: string;
+  weight?: number;
+}
+
 interface Trigger {
   id: string;
   instance_id: string;
   instance_name: string;
   keyword: string;
   match_type: 'exact' | 'contains';
-  sequence_id: string;
+  sequence_id?: string;
+  variants?: Variant[];
   is_active: boolean;
   auto_read?: boolean;
   created_at: string;
   wf_sequences?: {
     name: string;
   };
+  trigger_variants?: Variant[];
+  rates?: Array<{ variantId: string; rate: number }>;
 }
 
 export default function TriggersPage() {
@@ -39,7 +50,11 @@ export default function TriggersPage() {
   const [selectedInstance, setSelectedInstance] = useState('');
   const [keyword, setKeyword] = useState('');
   const [matchType, setMatchType] = useState<'exact' | 'contains'>('exact');
+  const [isExperiment, setIsExperiment] = useState(false);
   const [selectedSequence, setSelectedSequence] = useState('');
+  const [variants, setVariants] = useState<Variant[]>([]);
+  const [newVariantName, setNewVariantName] = useState('');
+  const [newVariantSequence, setNewVariantSequence] = useState('');
   const [isActive, setIsActive] = useState(true);
   const [autoRead, setAutoRead] = useState(true);
 
@@ -61,10 +76,22 @@ export default function TriggersPage() {
         fetch('/api/instances'),
       ]);
 
+      let trigData = [];
       if (trigRes.ok) {
-        const trigData = await trigRes.json();
-        setTriggers(trigData);
+        trigData = await trigRes.json();
       }
+
+      // Enrich variant triggers with rates (TDD helper)
+      const enriched = await enrichTriggersWithRates(trigData, async (triggerId: string) => {
+        const res = await fetch(`/api/variant-stats?trigger_id=${triggerId}`);
+        if (res.ok) {
+          const json = await res.json();
+          return json.data || [];
+        }
+        return [];
+      });
+      setTriggers(enriched);
+
       if (seqRes.ok) {
         const seqData = await seqRes.json();
         setSequences(seqData);
@@ -92,19 +119,30 @@ export default function TriggersPage() {
 
     const instanceName = instances.find((i) => i.id === selectedInstance)?.name || 'WhatsApp Device';
 
+    const payload: any = {
+      instance_id: selectedInstance,
+      instance_name: instanceName,
+      keyword,
+      match_type: matchType,
+      is_active: isActive,
+      auto_read: autoRead,
+    };
+
+    if (isExperiment && variants.length > 0) {
+      payload.variants = variants.map(v => ({
+        sequence_id: v.sequence_id,
+        name: v.name,
+        weight: v.weight || 1,
+      }));
+    } else {
+      payload.sequence_id = selectedSequence;
+    }
+
     try {
       const res = await fetch('/api/triggers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          instance_id: selectedInstance,
-          instance_name: instanceName,
-          keyword,
-          match_type: matchType,
-          sequence_id: selectedSequence,
-          is_active: isActive,
-          auto_read: autoRead,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const result = await res.json();
@@ -114,6 +152,9 @@ export default function TriggersPage() {
 
       setSuccess('Trigger keyword registered successfully!');
       setKeyword('');
+      setIsExperiment(false);
+      setVariants([]);
+      setNewVariantName('');
       setAutoRead(true);
       loadPageData(); // Reload list
     } catch (err: any) {
@@ -243,24 +284,89 @@ export default function TriggersPage() {
                 </div>
 
                 <div className="form-group">
-                  <label className="form-label">Trigger Sequence</label>
-                  {sequences.length === 0 ? (
-                    <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
-                      No sequences found. Create one first in the Sequences page.
-                    </div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <label className="form-label" style={{ margin: 0 }}>Mode</label>
+                    <label style={{ fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: 4 }}>
+                      <input
+                        type="checkbox"
+                        checked={isExperiment}
+                        onChange={(e) => setIsExperiment(e.target.checked)}
+                        disabled={formLoading}
+                      />
+                      A/B Test (variants)
+                    </label>
+                  </div>
+
+                  {!isExperiment ? (
+                    <>
+                      <label className="form-label">Trigger Sequence</label>
+                      {sequences.length === 0 ? (
+                        <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                          No sequences found. Create one first in the Sequences page.
+                        </div>
+                      ) : (
+                        <select
+                          className="form-control"
+                          value={selectedSequence}
+                          onChange={(e) => setSelectedSequence(e.target.value)}
+                          disabled={formLoading}
+                        >
+                          {sequences.map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </>
                   ) : (
-                    <select
-                      className="form-control"
-                      value={selectedSequence}
-                      onChange={(e) => setSelectedSequence(e.target.value)}
-                      disabled={formLoading}
-                    >
-                      {sequences.map((s) => (
-                        <option key={s.id} value={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
+                    <div style={{ border: '1px solid #ddd', padding: 8, borderRadius: 4, background: '#fafafa' }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 500, marginBottom: 4 }}>Variants</div>
+                      {variants.length > 0 && (
+                        <div style={{ fontSize: '0.8rem', marginBottom: 6 }}>
+                          {variants.map((v, i) => (
+                            <span key={i} style={{ display: 'inline-block', background: '#e5e7eb', padding: '1px 4px', marginRight: 4, borderRadius: 2 }}>
+                              {v.name}: {sequences.find(s => s.id === v.sequence_id)?.name}
+                              <button type="button" onClick={() => setVariants(variants.filter((_, idx) => idx !== i))} style={{ marginLeft: 4, color: 'red', fontSize: '10px' }}>×</button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <input
+                          type="text"
+                          placeholder="Name e.g. Short"
+                          value={newVariantName}
+                          onChange={e => setNewVariantName(e.target.value)}
+                          className="form-control"
+                          style={{ flex: 1, fontSize: '0.8rem', padding: '2px 4px' }}
+                          disabled={formLoading}
+                        />
+                        <select
+                          value={newVariantSequence}
+                          onChange={e => setNewVariantSequence(e.target.value)}
+                          className="form-control"
+                          style={{ fontSize: '0.8rem' }}
+                          disabled={formLoading}
+                        >
+                          {sequences.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                        </select>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (newVariantName.trim() && newVariantSequence) {
+                              setVariants([...variants, { sequence_id: newVariantSequence, name: newVariantName.trim() }]);
+                              setNewVariantName('');
+                            }
+                          }}
+                          disabled={!newVariantName.trim() || !newVariantSequence || formLoading}
+                          style={{ fontSize: '0.75rem', padding: '2px 6px' }}
+                        >
+                          +
+                        </button>
+                      </div>
+                      {variants.length < 2 && <div style={{ fontSize: '0.7rem', color: '#b45309', marginTop: 2 }}>Add 2+ for A/B</div>}
+                    </div>
                   )}
                 </div>
 
@@ -329,7 +435,7 @@ export default function TriggersPage() {
                         <th>Keyword</th>
                         <th>Match</th>
                         <th>Device</th>
-                        <th>Sequence</th>
+                        <th>Sequence / Performance</th>
                         <th>Auto-Read</th>
                         <th>Status</th>
                         <th style={{ textAlign: 'right' }}>Action</th>
@@ -347,7 +453,20 @@ export default function TriggersPage() {
                             </span>
                           </td>
                           <td style={{ fontSize: '0.85rem' }}>{trig.instance_name || trig.instance_id}</td>
-                          <td style={{ fontSize: '0.9rem' }}>{trig.wf_sequences?.name || 'Deleted Sequence'}</td>
+                          <td style={{ fontSize: '0.9rem' }}>
+                            {trig.trigger_variants && trig.trigger_variants.length > 0 ? (
+                              <span>
+                                {trig.trigger_variants.length} variants: {trig.trigger_variants.map((v, i) => v.name).join(', ')}
+                                {trig.rates && trig.rates.length > 0 && (
+                                  <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: 6 }}>
+                                    (rates: {trig.rates.map((r: any) => `${(r.rate * 100).toFixed(0)}%`).join(', ')})
+                                  </span>
+                                )}
+                              </span>
+                            ) : (
+                              trig.wf_sequences?.name || 'Deleted Sequence'
+                            )}
+                          </td>
                           <td>
                             <button
                               onClick={() => handleToggleAutoRead(trig)}

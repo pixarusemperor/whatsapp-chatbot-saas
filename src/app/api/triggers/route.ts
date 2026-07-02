@@ -6,7 +6,7 @@ export async function GET() {
   try {
     const { data: triggers, error } = await supabaseAdmin
       .from('wf_triggers')
-      .select('*, wf_sequences(name)')
+      .select('*, wf_sequences(name), trigger_variants(*)')
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -22,33 +22,62 @@ export async function GET() {
 export async function POST(req: Request) {
 
   try {
-    const { instance_id, instance_name, keyword, match_type, sequence_id, is_active, auto_read } = await req.json();
+    const { instance_id, instance_name, keyword, match_type, sequence_id, variants, is_active, auto_read } = await req.json();
 
-    if (!instance_id || !keyword || !sequence_id) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+    const cleanKeyword = keyword?.trim().toLowerCase();
+
+    if (!instance_id || !cleanKeyword) {
+      return NextResponse.json({ error: 'Missing required fields: instance_id, keyword' }, { status: 400 });
     }
 
-    const cleanKeyword = keyword.trim().toLowerCase();
+    // Support either single sequence_id (legacy) or variants array for split testing
+    const hasVariants = Array.isArray(variants) && variants.length > 0;
+    const hasSingle = !!sequence_id;
 
-    const { data, error } = await supabaseAdmin
+    if (!hasVariants && !hasSingle) {
+      return NextResponse.json({ error: 'Provide either sequence_id or variants[]' }, { status: 400 });
+    }
+
+    const triggerInsert: any = {
+      instance_id,
+      instance_name: instance_name || 'WhatsApp Instance',
+      keyword: cleanKeyword,
+      match_type: match_type || 'exact',
+      sequence_id: hasSingle ? sequence_id : null, // null for experiment triggers
+      is_active: is_active !== undefined ? is_active : true,
+      auto_read: auto_read !== undefined ? auto_read : true,
+    };
+
+    const { data: trigger, error: triggerError } = await supabaseAdmin
       .from('wf_triggers')
-      .insert({
-        instance_id,
-        instance_name: instance_name || 'WhatsApp Instance',
-        keyword: cleanKeyword,
-        match_type: match_type || 'exact',
-        sequence_id,
-        is_active: is_active !== undefined ? is_active : true,
-        auto_read: auto_read !== undefined ? auto_read : true,
-      })
+      .insert(triggerInsert)
       .select()
       .single();
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 });
+    if (triggerError || !trigger) {
+      return NextResponse.json({ error: triggerError?.message || 'Failed to create trigger' }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, data });
+    if (hasVariants) {
+      const variantsToInsert = variants.map((v: any) => ({
+        trigger_id: trigger.id,
+        sequence_id: v.sequence_id,
+        name: v.name || 'Variant',
+        weight: v.weight || 1,
+      }));
+
+      const { error: variantsError } = await supabaseAdmin
+        .from('trigger_variants')
+        .insert(variantsToInsert);
+
+      if (variantsError) {
+        // Rollback trigger
+        await supabaseAdmin.from('wf_triggers').delete().eq('id', trigger.id);
+        return NextResponse.json({ error: `Failed to create variants: ${variantsError.message}` }, { status: 500 });
+      }
+    }
+
+    return NextResponse.json({ success: true, data: trigger });
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
