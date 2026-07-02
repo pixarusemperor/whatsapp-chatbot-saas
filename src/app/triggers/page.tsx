@@ -56,6 +56,10 @@ export default function TriggersPage() {
   const [variants, setVariants] = useState<Variant[]>([]);
   const [newVariantName, setNewVariantName] = useState('');
   const [newVariantSequence, setNewVariantSequence] = useState('');
+
+  const removeVariant = (index: number) => {
+    setVariants(variants.filter((_, idx) => idx !== index));
+  };
   const [isActive, setIsActive] = useState(true);
   const [autoRead, setAutoRead] = useState(true);
 
@@ -147,7 +151,17 @@ export default function TriggersPage() {
       auto_read: autoRead,
     };
 
-    if (isExperiment && variants.length > 0) {
+    if (isExperiment) {
+      if (variants.length < 2) {
+        setError('A/B Test requires at least 2 variants (max 20)');
+        setFormLoading(false);
+        return;
+      }
+      if (variants.length > 20) {
+        setError('Maximum 20 variants allowed');
+        setFormLoading(false);
+        return;
+      }
       payload.variants = variants.map(v => ({
         sequence_id: v.sequence_id,
         name: v.name,
@@ -176,11 +190,11 @@ export default function TriggersPage() {
       setNewVariantName('');
       setAutoRead(true);
       setShowCreateModal(false);
-      loadPageData(); // Reload list
     } catch (err: any) {
       setError(err.message);
     } finally {
       setFormLoading(false);
+      loadPageData(); // Always refresh list to keep UI in sync with DB (prevents "disappeared" items)
     }
   };
 
@@ -333,23 +347,84 @@ export default function TriggersPage() {
                 <div style={{ marginBottom: 14 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
                     <div className="form-label" style={{ margin: 0 }}>Mode</div>
-                    <label style={{ fontSize: '.85rem' }}><input type="checkbox" checked={isExperiment} onChange={e=>setIsExperiment(e.target.checked)} /> A/B Test</label>
+                    <label style={{ fontSize: '.85rem' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={isExperiment} 
+                        onChange={e => {
+                          const checked = e.target.checked;
+                          setIsExperiment(checked);
+                          if (!checked) {
+                            setVariants([]);
+                            setNewVariantName('');
+                          }
+                        }} 
+                      /> A/B Test
+                    </label>
                   </div>
-                  {!isExperiment ? (
-                    <select className="input-sleek" value={selectedSequence} onChange={e=>setSelectedSequence(e.target.value)}>
-                      {sequences.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                    </select>
-                  ) : (
-                    <div>
-                      <div style={{ display: 'flex', gap: 8 }}>
-                        <input className="input-sleek" placeholder="Variant name" value={newVariantName} onChange={e=>setNewVariantName(e.target.value)} style={{ flex: 1 }} />
-                        <select className="input-sleek" style={{ width: 120 }} value={newVariantSequence} onChange={e=>setNewVariantSequence(e.target.value)}>
-                          {sequences.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                        </select>
-                        <button type="button" className="btn-sleek btn-sleek-primary btn-sleek-sm" onClick={() => { if (newVariantName.trim()) { setVariants([...variants, { sequence_id: newVariantSequence, name: newVariantName.trim() }]); setNewVariantName(''); } }}>+</button>
+                  {isExperiment ? (
+                    sequences.length === 0 ? (
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                        No sequences found. Create sequences first to use as variants.
                       </div>
-                      {variants.length > 0 && <div className="variant-pills" style={{ marginTop: 6 }}>{variants.map((v,i)=><span key={i} className="variant-pill">{v.name}</span>)}</div>}
-                    </div>
+                    ) : (
+                      <div>
+                        <div style={{ display: 'flex', gap: 8 }}>
+                          <input className="input-sleek" placeholder="Variant name" value={newVariantName} onChange={e=>setNewVariantName(e.target.value)} style={{ flex: 1 }} />
+                          <select className="input-sleek" style={{ width: 120 }} value={newVariantSequence} onChange={e=>setNewVariantSequence(e.target.value)}>
+                            {sequences.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                          </select>
+                          <button 
+                            type="button" 
+                            className="btn-sleek btn-sleek-primary btn-sleek-sm" 
+                            disabled={!newVariantName.trim() || variants.length >= 20 || !newVariantSequence || variants.some(v => v.name.toLowerCase() === newVariantName.trim().toLowerCase())}
+                            onClick={() => { 
+                              const name = newVariantName.trim();
+                              if (name && newVariantSequence && variants.length < 20 && !variants.some(v => v.name.toLowerCase() === name.toLowerCase())) { 
+                                setVariants([...variants, { sequence_id: newVariantSequence, name }]); 
+                                setNewVariantName(''); 
+                              } 
+                            }}
+                          >
+                            +
+                          </button>
+                        </div>
+                        <div style={{ fontSize: '0.75rem', color: variants.length >= 20 ? '#ef4444' : 'var(--text-muted)', marginTop: 4 }}>
+                          {variants.length} / 20 variants
+                          {variants.length < 2 && isExperiment && ' (minimum 2 required)'}
+                        </div>
+                        {variants.length > 0 && (
+                          <div className="variant-pills" style={{ marginTop: 6 }}>
+                            {variants.map((v, i) => {
+                              const seqName = sequences.find(s => s.id === v.sequence_id)?.name || '';
+                              return (
+                                <span key={i} className="variant-pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                  {v.name}{seqName ? ` (${seqName})` : ''}
+                                  <button 
+                                    type="button" 
+                                    onClick={() => removeVariant(i)} 
+                                    style={{ background: 'none', border: 'none', color: '#f87171', cursor: 'pointer', fontSize: '12px', padding: 0, lineHeight: 1 }}
+                                    title="Remove variant"
+                                  >
+                                    ×
+                                  </button>
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  ) : (
+                    sequences.length === 0 ? (
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '0.9rem' }}>
+                        No sequences found. Create one first in the Sequences page.
+                      </div>
+                    ) : (
+                      <select className="input-sleek" value={selectedSequence} onChange={e=>setSelectedSequence(e.target.value)}>
+                        {sequences.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                      </select>
+                    )
                   )}
                 </div>
 
@@ -360,7 +435,13 @@ export default function TriggersPage() {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn-sleek btn-sleek-secondary" onClick={() => setShowCreateModal(false)}>Cancel</button>
-                <button type="submit" disabled={formLoading} className="btn-sleek btn-sleek-primary">{formLoading ? 'Creating…' : 'Create'}</button>
+                <button 
+                  type="submit" 
+                  disabled={formLoading || (isExperiment && variants.length < 2) || (isExperiment && variants.length > 20)} 
+                  className="btn-sleek btn-sleek-primary"
+                >
+                  {formLoading ? 'Creating…' : 'Create'}
+                </button>
               </div>
             </form>
           </div>

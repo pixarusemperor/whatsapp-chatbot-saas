@@ -38,46 +38,75 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Provide either sequence_id or variants[]' }, { status: 400 });
     }
 
+    if (hasVariants) {
+      if (variants.length < 2 || variants.length > 20) {
+        return NextResponse.json({ error: 'A/B test requires between 2 and 20 variants' }, { status: 400 });
+      }
+      // Basic duplicate name check (case insensitive)
+      const names = variants.map((v: any) => (v.name || '').trim().toLowerCase());
+      if (new Set(names).size !== names.length) {
+        return NextResponse.json({ error: 'Variant names must be unique' }, { status: 400 });
+      }
+    }
+
+    // Short-term fix (highest ROI): always provide a sequence_id for wf_triggers
+    // to satisfy the NOT NULL constraint. For A/B, use the first variant's sequence_id
+    // as the "primary" on the parent trigger row.
+    let finalSequenceId = sequence_id;
+    if (hasVariants && variants.length > 0) {
+      finalSequenceId = variants[0].sequence_id || sequence_id;
+    }
+
     const triggerInsert: any = {
       instance_id,
       instance_name: instance_name || 'WhatsApp Instance',
       keyword: cleanKeyword,
       match_type: match_type || 'exact',
-      sequence_id: hasSingle ? sequence_id : null, // null for experiment triggers
+      sequence_id: finalSequenceId,
       is_active: is_active !== undefined ? is_active : true,
       auto_read: auto_read !== undefined ? auto_read : true,
     };
 
-    const { data: trigger, error: triggerError } = await supabaseAdmin
-      .from('wf_triggers')
-      .insert(triggerInsert)
-      .select()
-      .single();
+    let createdTriggerId: string | null = null;
 
-    if (triggerError || !trigger) {
-      return NextResponse.json({ error: triggerError?.message || 'Failed to create trigger' }, { status: 500 });
-    }
+    try {
+      const { data: trigger, error: triggerError } = await supabaseAdmin
+        .from('wf_triggers')
+        .insert(triggerInsert)
+        .select()
+        .single();
 
-    if (hasVariants) {
-      const variantsToInsert = variants.map((v: any) => ({
-        trigger_id: trigger.id,
-        sequence_id: v.sequence_id,
-        name: v.name || 'Variant',
-        weight: v.weight || 1,
-      }));
-
-      const { error: variantsError } = await supabaseAdmin
-        .from('trigger_variants')
-        .insert(variantsToInsert);
-
-      if (variantsError) {
-        // Rollback trigger
-        await supabaseAdmin.from('wf_triggers').delete().eq('id', trigger.id);
-        return NextResponse.json({ error: `Failed to create variants: ${variantsError.message}` }, { status: 500 });
+      if (triggerError || !trigger) {
+        return NextResponse.json({ error: triggerError?.message || 'Failed to create trigger' }, { status: 500 });
       }
-    }
 
-    return NextResponse.json({ success: true, data: trigger });
+      createdTriggerId = trigger.id;
+
+      if (hasVariants) {
+        const variantsToInsert = variants.map((v: any) => ({
+          trigger_id: trigger.id,
+          sequence_id: v.sequence_id,
+          name: v.name || 'Variant',
+          weight: v.weight || 1,
+        }));
+
+        const { error: variantsError } = await supabaseAdmin
+          .from('trigger_variants')
+          .insert(variantsToInsert);
+
+        if (variantsError) {
+          throw new Error(`Failed to create variants: ${variantsError.message}`);
+        }
+      }
+
+      return NextResponse.json({ success: true, data: trigger });
+    } catch (err: any) {
+      // Manual transaction compensation (short-term): clean up trigger if variants failed
+      if (createdTriggerId) {
+        await supabaseAdmin.from('wf_triggers').delete().eq('id', createdTriggerId);
+      }
+      return NextResponse.json({ error: err.message || 'Failed to create trigger with variants' }, { status: 500 });
+    }
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
